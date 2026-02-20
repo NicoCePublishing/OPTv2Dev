@@ -20,7 +20,7 @@
     <div class="col-md-12">
       <div class="card shadow-none border border-300">
       
-          <div class="card-header p-3 border-bottom border-300 bg-soft">
+          <div class="card-header d-none p-3 border-bottom border-300 bg-soft">
 
             <h4> List  
               {{-- <a class="fw-bold " data-bs-toggle="modal" data-bs-target="#AdminAddNewExpenseModal" >+ Add New</a> --}}
@@ -41,7 +41,7 @@
            </div>
 
           </div>
-          <div class="card-body">
+          <div class="card-body p-2">
               <div class="table-responsive scrollbar">
                 <table id="admin-users-list-table" class="table  mb-0">
                   <thead>
@@ -72,7 +72,7 @@
 
    
   <div class="modal"  id="adminUserEditModal" tabindex="-1" aria-labelledby="verticallyCenteredModalLabel" aria-modal="true" role="dialog">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content ">
         <div class="modal-header">
           <h5 class="modal-title" id="verticallyCenteredModalLabel">Edit User</h5>
@@ -186,7 +186,7 @@
                           </div>
           
                           <div class="col-md-12 mt-2 d-flex justify-content-end">
-                              <button type="submit" class="btn btn-primary w-50">
+                              <button type="submit" class="btn btn-primary w-25">
                                   Save
                               </button>
                           </div>
@@ -246,7 +246,7 @@ $(document).ready(function(){
                       { "data": "action" }
               ];
 
-              dTable(adminUsersListTable, adminUsersListTableURL, adminUsersListTableColumns, 300,"",true,'',true,0,0);
+              dTable(adminUsersListTable, adminUsersListTableURL, adminUsersListTableColumns, 270,"",true,'',true,0,0);
             // -----DATATABLE
 
     }
