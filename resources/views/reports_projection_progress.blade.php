@@ -57,7 +57,7 @@
                            
                            </div>
                      </div>
-                     <div class="col-md-5">
+                     <div class="col-md-6">
                      <div class="input-group ">
                            <span class="input-group-text" id="basic-addon1">Name</span>
                            <select class="form-control reportsprojprogress_pernr"  required name="reportsprojprogress_pernr" id="reportsprojprogress_pernr" aria-label="Default select example">
@@ -168,7 +168,8 @@ $(document).ready(function(){
    var basedocnum = $('.reportsprojprogress_period').val();
          var pernr=  $('.reportsprojprogress_pernr').val();
           
-
+         if(pernr !== '1'){
+            
             var projProgressListable = $("#reports-projprogress-list");
             var projProgressListableURL =  "/datatable_reports_projprogress?basedocnum="+basedocnum+"&pernr="+pernr;
             var projProgressListableColumns = [
@@ -189,6 +190,9 @@ $(document).ready(function(){
        
 
             dTableRowGroup(projProgressListable,0, projProgressListableURL, projProgressListableColumns, 250,"",true,'',false,0,0);
+
+         }
+            
             
 
 

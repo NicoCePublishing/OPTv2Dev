@@ -216,6 +216,8 @@ a {
     z-index: 9999999999999999 !important;
 }
 
+
+
 .loading {
   position: fixed;
   z-index: 9999999999;
@@ -887,7 +889,7 @@ table.dataTable thead th {
 
             </h4>
    
-        </div>
+        </div>   
         {{-- <div class="col-12 col-lg-4 text-end">
             <h5 class="text-700 fw-semi-bold">OPT</h5>
         </div> --}}
@@ -1811,8 +1813,20 @@ function get_minidashboard_pernr (pernr,projdocnum,username = '0',continuerefres
                     var ytdprojtn = d.ytdprojtn;     
                     var projtnoverbudget = d.projtnoverbudget;     
                     var projectionidstatus = d.projectionidstatus;     
+                    var projperiodstatus = d.projperiodstatus;     
 
+                    if(projperiodstatus === '1'){
+                    
+                        var projperiodstatusDisplay = `<span class="text-success blink-text"> Open </span>`;
+        
 
+                    }
+                    else {
+
+                        var projperiodstatusDisplay = `<span class="text-600"> Closed </span>`;
+
+                    }
+                    
                     $('.lysales_totalval').val(lastyear)
                     $('.ytdsales_totaldisplay').text(ytdsales)
 
@@ -1824,6 +1838,9 @@ function get_minidashboard_pernr (pernr,projdocnum,username = '0',continuerefres
                     $('.ytdprojtn_totaldisplay').text(ytdprojtn)
                     $('.projtnbudget_totaldisplay').text(projtnoverbudget)
 
+              
+
+                    $('.projperiodstatus').html(projperiodstatusDisplay)
                     hideLoadingDiv('.mini-db');
 
                 
@@ -1844,6 +1861,25 @@ function get_minidashboard_pernr (pernr,projdocnum,username = '0',continuerefres
 
 }
 
+
+document.addEventListener('shown.bs.dropdown', (e) => {
+  const menu = e.target.nextElementSibling;
+  if (!menu || !menu.classList.contains('dropdown-menu')) return;
+
+  document.body.appendChild(menu);
+  const r = e.target.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.left = (r.right - menu.offsetWidth) + 'px';
+  menu.style.top = (r.bottom) + 'px';
+  menu.style.zIndex = 999999;
+});
+
+document.addEventListener('hide.bs.dropdown', (e) => {
+  const menu = document.querySelector('body > .dropdown-menu');
+  if (!menu) return;
+  e.target.parentNode.appendChild(menu);
+  menu.removeAttribute('style');
+});
 
 function getStatusBadge(isbnstatus, adhtml = '') {
 

@@ -183,13 +183,11 @@ class Mkacontrol extends Controller
     public function testconnection(Request $request)
     {   
 
+        // $basedocnum = '260';
+        // $pernr = '00001219';
+        // $rsmm = '00099985';
+        // $this->EmailSubmittedForApproval($request,$basedocnum,$pernr,$rsm);
 
-        $kunnr = '0001805673';
-
-       $q =  customerTitleBudgetThisYear($kunnr,$_pernr = 1);
-
-
-       dd($q);
         // foreach ($q as $a) {
 
         // }
@@ -411,6 +409,49 @@ class Mkacontrol extends Controller
         
       
     }
+    public function submit_admin_user_edit(Request $request) {
+
+        $id = $request->input('admin_user_edit_form_id');
+        $pernr = $request->input('admin_user_edit_form_pernr');
+        $rank = $request->input('admin_user_edit_form_rank');
+
+        $fullname = $request->input('admin_user_edit_form_fullname');
+        $username = $request->input('admin_user_edit_form_username');
+        $pwd = $request->input('admin_user_edit_form_password');
+        $email = $request->input('admin_user_edit_form_email');
+        $rsm = $request->input('admin_user_edit_form_rsm');
+        $ssm = $request->input('admin_user_edit_form_ssm');
+
+        $status = "404";
+
+        $updateuserinfo = OPTv2User::where('id',$id)
+                        ->update([
+                                    "FULLNAME"   => $fullname,
+                                    "USERNAME" => $username,
+                                    "PASSWORD" => $pwd,
+                                    "EMAIL" => $email,
+                                    "RSM" => $rsm,
+                                    "SSM" => $ssm
+                            ]);
+
+        if($updateuserinfo) {
+
+              $status = "2";
+
+        }
+
+         $html = "";
+
+
+        $response[] = array( 
+                "status" => $status,
+                "html" => $html
+        );
+
+        return response()->json($response);
+  
+    }
+
     public function datatable_users_list_table(Request $request) {
 
         $query = OPTv2User::select('*')
@@ -463,7 +504,17 @@ class Mkacontrol extends Controller
                                                         View</a>';
                     $rsmDisplay = $rsm;
                     $ssmDisplay = $ssm;
+                    $checked = '';
 
+                    if( $active == '1') {
+                        $checked = 'checked';
+                    }
+                    $activeDisplay =  '
+
+                        <div class="mb-0 form-switch h5 d-flex justify-content-center">
+                                                    <input class="form-check-input useractive-status-sw" id="flexSwitchCheckChecked" value="'.$active.'" '.$checked.' data-id= "'.$id.'" type="checkbox" >
+                                                </div>
+                        ';
                       $response[] = array(
                         'num' => $num,
                         'userid' => $id,
@@ -474,7 +525,7 @@ class Mkacontrol extends Controller
                         'email' => $email,
                         'rank' => $rank, 
                         'pernr' => $pernr, 
-                        'active' => $active, 
+                        'active' => $activeDisplay, 
                         'division' => $division, 
                         'rsm' => $rsmDisplay, 
                         'ssm' => $ssmDisplay, 
@@ -486,6 +537,36 @@ class Mkacontrol extends Controller
           }
 
                 return response()->json($response);
+
+    }
+
+    public function submit_update_activestatus_user(Request $request) {
+
+        $v = $request->input('v');
+        $id = $request->input('id');
+        $html = "";
+        $u =  OPTv2User::where('id',$id)
+                                ->update([
+                                    "ACTIVE" => $v
+                                ]);
+
+        if($u) {
+            $status = 2;
+        }
+        else {
+            $status = 404;
+        }
+    
+
+
+        $response = array(
+            'status' => $status,
+            'html' => $html
+        );
+                                
+        return response()->json($response);
+        
+
 
     }
 
@@ -3073,10 +3154,24 @@ public function datatable_customer_link_accounts(Request $request) {
 
     $pernr = session('pernr');
       
-    $qcustomerlink =  OPTv2CustomerLink::where('USERCREATE',$pernr)
-                                        ->orderBy('id','DESC')
-                                        ->get();
+    // $qcustomerlink =  OPTv2CustomerLink::where('USERCREATE',$pernr)
+    //                                     ->orderBy('id','DESC')
+    //                                     ->get();
 
+    $qcustomerlink = CrmMotherLookup::whereIn('AE',userteam())
+                ->leftjoin('prd.CRMMOTHERACT as t2','prd.CRMMOTHERLOOKUP.ACCTNO','=','t2.MOTHERACCT')
+                ->orderByRaw('CUSTNAME','ASC')
+                ->selectRaw('
+                                MAX(prd.CRMMOTHERLOOKUP.NAME) as CUSTNAME, 
+                                MAX(RTRIM(CUSTNO)) as CUSTNO, 
+                                MAX(RTRIM(MOTHERACCT)) as MOTHERACCT, 
+                                MAX(AE) as AE, 
+                                MAX(RTRIM(DEPARTMENT)) as DEPARTMENT
+                            
+                                '
+                                )
+                ->groupBy('t2.CUSTNO')
+                ->get();
     $num = 0;
     
     if($qcustomerlink->isEmpty()) {
@@ -3088,30 +3183,163 @@ public function datatable_customer_link_accounts(Request $request) {
         foreach($qcustomerlink as $c) {
                 $num++;
             
-                $customercode = $c->CUSTOMER;
-                $customername = $c->CUSTOMERNAME;
-                $docdate = $c->DOCDATE;
-                $frompernr = $c->FROMPERNR;
+                $customercode = $c->CUSTNO;
+           
+                $department = $c->DEPARTMENT;
+                // $docdate = $c->DOCDATE;
+                $frompernr = $c->AE;
                 $topernr = $c->TOPERNR;
-            
+
+                $customerlist[] = $customercode;
+                $fromaelist[] = $frompernr;
                 
-                $frompernrDisplay = userDetails($frompernr)->FULLNAME . " &nbsp" . $frompernr;
-                $topernrDisplay = userDetails($topernr)->FULLNAME . " &nbsp" . $topernr;
+                $frompernrDisplay =  $frompernr;
+                // $topernrDisplay = userDetails($topernr)->FULLNAME . " &nbsp" . $topernr;
 
-                $customernametruncate = truncatelimitWords($customername,28) . " &nbsp" . $customercode;
+                $dept = '';
 
-                $customernameDisplay = '<span class="line-clamp-1" title="'.$customername.'">' .$customername . '</span>' ;
+                if (!is_null($department) && $department !== '') {
+                    $dept = ' - ' . $department;
+                }
+
+                $customername = $c->CUSTNAME . $dept;
+
+                $customernameDisplay = '<span class="text-start line-clamp-1" title="'.$customername.'">'.$customercode.'&nbsp ' .$customername . '</span>' ;
 
                 $response[] = array(
                     "num" => $num,
                     "customercode" => $customercode,
-                    "customername" => $customername,
-                    "frompernr" => $frompernrDisplay,
-                    "topernr" => $topernrDisplay,
-                    "docdate" => $docdate,
+                    "customername" => $customernameDisplay,
+                    "customernametext" => $customername,
+                    "frompernr" => $frompernr,
+                    "frompernrdisplay" => '-',
+                    "topernr" => '-',
+                    "topernrdisplay" => '-',
+                    "docdate" => '-',
+                    "action" => '-',
                 );
 
         }
+
+        
+
+// kunin mo lng from pernr name
+
+        $qfromae = OPTv2User::whereIn('PERNR',array_unique($fromaelist))
+                                ->get();
+
+        $qfromaeName = [];
+        foreach($qfromae as $qfae) {
+
+            $qfromaeName[$qfae->PERNR]['FULLNAME'] = $qfae->FULLNAME;
+
+        }
+
+        foreach ($response as &$res) {
+
+            $frompernr = isset($res['frompernr']) ? trim($res['frompernr']) : '-';
+        
+            $fullname = $qfromaeName[$frompernr]['FULLNAME'] ?? '-';
+        
+            $res['frompernrdisplay'] = $frompernr . ' &nbsp;' . $fullname;
+        }
+
+        unset($res);
+//-----------------
+
+// kunin mo yung mga customercodes na may naka link
+
+        // $customerCodes = array_values(array_unique(array_map(
+        //     fn($r) => trim($r['customercode'] ?? ''),
+        //     $response
+        // )));
+        
+      
+
+        // foreach (array_chunk($customerCodes, 2000) as $chunk) { // 2000 safe
+        //     OPTv2CustomerLink::whereIn('CUSTOMER', $chunk)
+        //         ->where('STATUS', '1')  // only what you need
+        //         ->get()
+        //         ->each(function ($row) use (&$customerTopMap) {
+        //             $customerTopMap[trim($row->CUSTOMER)]['TOPERNR'] = trim($row->TOPERNR ?? '');
+        //             $customerTopMap[trim($row->CUSTOMER)]['TOPERNRNAME'] = trim($row->TOPERNRNAME ?? '');
+        //         });
+        // }
+
+        $customerTopMap = []; 
+
+        $qcustomerlink = OPTv2CustomerLink::whereIn('FROMPERNR', array_unique($fromaelist))
+                ->where('STATUS', '1')  
+                ->get();
+
+        foreach ($qcustomerlink as $qcl) {
+
+            $customerTopMap[trim($qcl->CUSTOMER)]['TOPERNR'] = trim($qcl->TOPERNR ?? '');
+            $customerTopMap[trim($qcl->CUSTOMER)]['TOPERNRNAME'] = trim($qcl->TOPERNRNAME ?? '');
+        }
+        
+        $filterPernr = filter_user_list('0')->get()
+                                    ->map(fn($u) => [
+                                        'PERNR' => $u->PERNR,
+                                        'FULLNAME' => $u->FULLNAME,
+                                    ])
+                                    ->values()
+                                    ->toArray();
+        $pernrOptions = '';
+
+        foreach ($filterPernr as $u) {
+            $pernr = trim($u['PERNR']);
+            $name  = htmlspecialchars($u['FULLNAME'], ENT_QUOTES, 'UTF-8');
+        
+            // pwede mo i-format kung ano gusto mo ipakita
+            $pernrOptions .= ' <a href="#" class="dropdown-item p-1 text-primary btn-linkto" data-linktopernr="'.$pernr.'" data-linktopernrname="'.$name.'"> '.$pernr.' - '.$name.' </a>';
+        }
+
+        foreach ($response as &$res) {
+            $code = trim($res['customercode'] ?? '');
+            $topernrname = $customerTopMap[$code]['TOPERNRNAME'] ?? '-';
+            $topernr = $customerTopMap[$code]['TOPERNR'] ?? '';
+            $customercode = $res['customercode'];
+            $customername = $res['customernametext'];
+            $frompernr =  trim($res['frompernr']);
+            $res['topernr'] = $topernr ;
+            $res['topernrdisplay'] = $topernr . ' &nbsp' . $topernrname;
+
+            $action = '<div class="font-sans-serif btn-reveal-trigger position-static">
+            <button class="btn btn-sm border p-1 dropdown-toggle dropdown-caret-none transition-none btn-reveal fs--2"
+                type="button"
+                data-bs-toggle="dropdown"
+                data-bs-container="body"
+                data-bs-boundary="viewport"
+                aria-expanded="false">
+                <span class="fas fa-ellipsis-h fs--2"></span>
+        </button>
+          <div class="dropdown-menu dropdown-menu-end py-2" style="height:35vh; overflow-y:auto;overflow-x:hidden;">
+                        <a href="#" class="dropdown-item text-danger p-1 btn-unlink" data-customer="'.$customercode.'" data-customername="'.$customername.'">
+                                        Unlink
+                        </a>
+                        <div class="dropdown-divider"></div>    
+                        <span class="fw-bold px-1"> Link To</span>
+                            <input class="linkfrompernr un-cl d-none"  readonly="readonly" value="'.$frompernr.'" > 
+                            <input class="linktoexistpernr un-cl d-none"  readonly="readonly" value="'.$topernr.'" > 
+                            <input class="linktocustomercode un-cl d-none"  readonly="readonly" value="'.$customercode.'" > 
+                            <input class="linktocustomername un-cl d-none"  readonly="readonly" value="'.$customername.'" > 
+
+                            '.$pernrOptions.'
+                        ';
+                                        
+            
+        
+    
+            $action .= "
+                                </div>
+                        </div>";
+                        $res['action'] = $action;
+            
+        }
+        unset($res);
+//-------------------
+
 
     }
 
@@ -3417,17 +3645,16 @@ public function approvals_count(Request $request) {
             $finalCnt = $cntProjection + $cntAllocIn + $cntAllocOut + $cntConvertAllocd;
 
             $qcustomertemplist = OPTv2Projectionh::where('CUSTOMER','LIKE','%TEMP%')
-            ->selectRaw("
-                COUNT(DISTINCT CUSTOMERNAME) as cnt
-            ")
-            ->groupBy('CUSTOMERNAME')
-            ->first();
+            ->distinct('CUSTOMERNAME')
+            ->count();
+
 
             $response = [
                 'approvalscount' => $finalCnt,
-                'customertempcount' => $qcustomertemplist->cnt ?? 0
+                'customertempcount' => $qcustomertemplist
 
             ];
+            
             return response()->json($response);
 
 }
@@ -4274,7 +4501,7 @@ public function datatable_reports_projprogress(Request $request) {
 
     if($_pernr == '1') {   
 
-        $pernr = userteam();
+        $pernr = filter_user_list()->pluck('PERNR')->toArray();
     } else {
      
         $pernr[] = $_pernr;
@@ -4497,14 +4724,14 @@ public function datatable_for_approval_projection_final_customer_isbn_list(Reque
                     <td class="text-center" title="'.$title.'">'.$titleDisplay.'</td>
                     <td>₱<span class="for_approval_projection_final_edit_linetotal_amount_display '.$docnum.''.$isbn.'linetotaltext">0</span></td>
                     <td>₱'.$isbnunitpriceDisplay.'</td>
-                    <td><input class="form-control text-center form-control-sm for_approval_projection_final_edit_population_qty un-cl" type="number" value="'.$population.'" min="1"></td>
+                    <td><input class="form-control text-center p-1 for_approval_projection_final_edit_population_qty un-cl" type="number" value="'.$population.'" min="1"></td>
             
                     <td>
                         <div class="rounded '.$borderDisplay.'" '.$remarksDisplay.'>
-                            <input class="form-control text-center  form-control-sm for_approval_projection_final_edit_projtn_qty '.$customercode.'projtn un-cl" type="number" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="'.$qty.'" min="1">
+                            <input class="form-control text-center p-1 for_approval_projection_final_edit_projtn_qty '.$customercode.'projtn un-cl" type="number" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="'.$qty.'" min="1">
                         </div>
                     </td>
-                    <td><input class="form-control text-center  form-control-sm for_approval_projection_final_edit_approve_qty '.$uncl.' '.$docnum.''.$isbn.'editapproveqty" '.$readonly.' type="number" data-docnum="'.$docnum.'"  data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" data-aeprojtn="'.$projection.'" min="1"></td>
+                    <td><input class="form-control text-center p-1  for_approval_projection_final_edit_approve_qty '.$uncl.' '.$docnum.''.$isbn.'editapproveqty" '.$readonly.' type="number" data-docnum="'.$docnum.'"  data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" data-aeprojtn="'.$projection.'" min="1"></td>
                    
                   <td><span class="totalbudget_display '.$customercode.''.$isbn.'totalbudget">0</span></td>
                     <td><span class="totalprev_display '.$customercode.''.$isbn.'totalprev1">0</span></td>
@@ -4855,7 +5082,7 @@ public function datatable_for_approval_projection_customer_list(Request $request
                 "motheracct" => $motheracct,
                 "department" => $department,
                 "amount" => $doctotalDisplay,
-                "thisyearprojtn" => '',
+                "thisyearprojtn" => 0,
                 "budget" => $budgetqtyDisplay,
                 "isbnTableList" => $isbnTableList,
                 "saleshistoryprev1" => $totalPrev1Display,
@@ -5185,7 +5412,7 @@ public function datatable_for_approval_projection_customer_list(Request $request
                     "projection" => $projtnDisplay,
                     "motheracct" => $motheracct,
                     "department" => $department,
-                    "thisyearprojtn" => '',
+                    "thisyearprojtn" => 0,
                     "amount" => $doctotalDisplay,
                     "budget" => $budgetqtyDisplay,
                     "saleshistoryprev1" => $totalPrev1Display,
@@ -5418,14 +5645,14 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                         <td class="text-center" title="'.$title.'">'.$titleDisplay.'</td>
                                         <td>₱<span class="for_approval_projection_edit_linetotal_amount_display '.$docnum.''.$isbn.'linetotaltext">0</span></td>
                                         <td>₱'.$isbnunitpriceDisplay.'</td>
-                                        <td><input class="form-control text-center form-control-sm for_approval_projection_edit_population_qty un-cl" type="number" value="'.$population.'" min="1"></td>
+                                        <td><input class="form-control text-center p-1 for_approval_projection_edit_population_qty un-cl" type="number" value="'.$population.'" min="1"></td>
                                 
                                         <td>
                                             <div class="rounded '.$borderDisplay.'" '.$remarksDisplay.'>
-                                             <input class="form-control text-center  form-control-sm for_approval_projection_edit_projtn_qty '.$docnum.'projtn un-cl" title="hey" type="number" data-customercode="'.$docnum.'" data-isbn="'.$isbn.'" value="'.$projection.'" min="1">
+                                             <input class="form-control text-center p-1 for_approval_projection_edit_projtn_qty '.$docnum.'projtn un-cl" title="hey" type="number" data-customercode="'.$docnum.'" data-isbn="'.$isbn.'" value="'.$projection.'" min="1">
                                             </div>
                                         </td>
-                                        <td><input class="form-control text-center  form-control-sm for_approval_projection_edit_projtn_rsm_qty '.$uncl.' '.$docnum. $isbn . 'editrsmqty '.$status.'"  '.$readonly.'  type="number" data-docnum="'.$docnum.'" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="0" data-aeprojtn="'.$projection.'" min="1"></td>
+                                        <td><input class="form-control text-center p-1 for_approval_projection_edit_projtn_rsm_qty '.$uncl.' '.$docnum. $isbn . 'editrsmqty '.$status.'"  '.$readonly.'  type="number" data-docnum="'.$docnum.'" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="0" data-aeprojtn="'.$projection.'" min="1"></td>
                                     
                                     <td><span class="totalbudget_display '.$customercode.''.$isbn.'totalbudget">0</span></td>
                                         <td><span class="totalprev_display '.$customercode.''.$isbn.'totalprev1">0</span></td>
@@ -5578,7 +5805,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                 $title = $risbnprojd->DESCRIPTION;
                 $qty = $risbnprojd->PROJECTION;
                 $disc = $risbnprojd->DISC;
-                $isbnunitprice = $risbnprojd->UNITP;
+                $isbnunitprice = $risbnprojd->UNITP ?: 0;
                 $population = $risbnprojd->POPULATION;
                 $projection = $risbnprojd->PROJECTION;
                 $linetotal = $risbnprojd->LINETOTAL;
@@ -5635,7 +5862,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
              $title = $risbn->titlename;
              $qty = $risbn->qty;
              $disc = $risbn->disc;
-             $isbnunitprice = $risbn->price;
+             $isbnunitprice = $risbn->price ?: 0 ;
              $population = $risbn->population;
              $projection = $risbn->qty;
              $linetotal = $risbn->net_price;
@@ -6585,7 +6812,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 
                 ';
             
-            
+                $projtnDisplay = '<span class="'.$customercode.'projtntotal">0</span>  <input type="number" class="d-none form-control un-cl form-control-sm projtntotalvalue '.$customercode.'projtntotalvalue" readonly="readonly">';
                 $doctotalDisplay = '₱<span class="'.$customercode.'doctotal">0</span>     <input type="number" class="d-none form-control un-cl form-control-sm customersdoctotalvalue '.$customercode.'doctotalvalue" readonly="readonly">';
                     
                 $curprojtnDisplay = '<span title="Approved this year" class="curprojtnqty_display '.$customercode.'curprojtnqty">0</span>';
@@ -6596,7 +6823,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                     "numtitles" => '',
                     "customername" => $customernameDisplay,
                     "customercode" => $customercode,
-                    "projection" => 0,
+                    "projection" => $projtnDisplay,
                     "motheracct" => $motheracct,
                     "department" => $department,
                     "amount" => $doctotalDisplay,
@@ -6931,6 +7158,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
         $staff = session('user_staff');
         $pernr = session('pernr');
+        $rsm = session('rsm');
         $date_now_full = date_now();
         $date_now = date_now('dateonly');
     
@@ -6953,11 +7181,14 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
         }
         else {
+
             $update = $query->update([
                     "STATUS" => 'for_rsm_approval',
                     "SUBMIT" => '1',
                     "DATESUBMIT" => $date_now
             ]);
+
+            $this->EmailSubmittedForApproval($request,$projdocnum,$pernr,$rsm);
 
             // $queryh = OPTv2Projectionh::where('BASEDOCNUM',$projdocnum)
             // ->where('USERNAME',$staff)
@@ -7011,7 +7242,8 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         if($update) {
            
             $row = $query->first();
-            $projtnpernr = $row->USERID;
+            $projtnpernr = $row->PERNR;
+            $basedocnum = $row->BASEDOCNUM;
 
             foreach($expDocnumlist as $exd) {
 
@@ -7031,6 +7263,8 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                                     ]);
 
             $status = "2";
+
+            $this->EmailReturnProjection($request,$basedocnum,$projtnpernr,$remarks);
 
        
 
@@ -7186,6 +7420,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         if($pernr !== '1') {
 
             $_qstockallocated->where('PERNR',$pernr);
+            $_qstockallocationbreakdown->where('PERNR',$pernr);
         }
 
         $num = 0;
@@ -7787,6 +8022,9 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
         $projectionh = projectionDetails($projdocnum,$username);
 
+        $qprojectionperiod = projection_period_details($projdocnum);
+        $projperiodstatus = $qprojectionperiod->STATUS ?? '';
+
         $saved = $projectionh ? $projectionh->SAVED  : null ; 
         $statusdb = $projectionh ? $projectionh->STATUS  : null ; 
         $submitforapproval = $projectionh ? $projectionh->SUBMITFORAPPROVAL : null ; 
@@ -7829,6 +8067,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
             "projectionidstatus" => $projectionstatusDisplay,
             "thisprojtnperiod" => $thisprojtnperiodDisplay,
             "ytdprojtn" => $ytdprojtnDisplay,
+            "projperiodstatus" => $projperiodstatus,
             "projtnoverbudget" => $projtnoverbudgetDisplay,
 
         );
@@ -11438,6 +11677,94 @@ public function submit_convertalloc_new(Request $request) {
 
     }
 
+    public function submit_unlink_customer(Request $request) {
+
+        $customercode = $request->input('customercode');
+        $customername = $request->input('customername');
+        $staff = session('user_staff');
+        $pernr = session('pernr');
+        $date_now = date_now('dateonly');
+
+        $status = 404;
+        $html = "";
+        $qunlink =  OPTv2CustomerLink::where('CUSTOMER',$customercode)
+                                        ->update([
+                                            'STATUS' => '0'
+                                        ]);
+
+        if($qunlink) {
+
+            $status = 2;
+
+        }
+
+        $response = array(
+            'status' => $status,
+            'html' => $html
+        );
+                                
+        return response()->json($response);
+    }
+
+    
+    public function submit_link_customer(Request $request) {
+        $customercode = $request->input('customercode');
+        $customername = $request->input('customername');
+        $frompernr = $request->input('linkfrompernr');
+        $topernr = $request->input('linktopernr');
+        $topernrname = $request->input('linktopernrname');
+        $staff = session('user_staff');
+        $pernr = session('pernr');
+        $date_now = date_now('dateonly');
+
+        $html = "";
+
+        $qdocnum =  OPTv2CustomerLink::orderByRaw('DOCNUM + 0 DESC')
+                                        ->first();
+        $docnum = $qdocnum ? $qdocnum->DOCNUM + 1 : 1;
+
+
+        $qunlink =  OPTv2CustomerLink::where('CUSTOMER',$customercode)
+                                ->update([
+                                    'STATUS' => '0'
+                                ]);
+
+        $qlinknew = OPTv2CustomerLink::create([
+                "DOCNUM" => $docnum,
+                "CUSTOMER" => $customercode,
+                "CUSTOMERNAME" => $customername,
+                "FROMPERNR" => $frompernr,
+                "TOPERNR" => $topernr,
+                "TOPERNRNAME" => $topernrname,
+                "DOCDATE" => $date_now,
+                "USERCREATE" => $pernr,
+                "STATUS" => "1",
+        ]);
+        
+
+        if($qlinknew) {
+            $status = 2;
+        }
+        else {
+            $status = 404;
+        }
+
+
+     
+     
+     
+    
+        $response = array(
+            'status' => $status,
+            'html' => $html
+        );
+                                
+        return response()->json($response);
+        
+
+
+    }
+
     public function submit_add_new_link_customer(Request $request) {
         $customercode = $request->input('customercode');
         $customername = $request->input('customername');
@@ -11630,7 +11957,7 @@ public function submit_convertalloc_new(Request $request) {
                 $sapisbnDisplay = $sapisbn;
 
                 if($sapisbn == '') {
-                    $sapisbnDisplay = '<a class="fw-bold updateisbn_pushlist_btn text-primary " data-id="'.$id.'" data-tempisbn="'.$tempisbn.'" >+Update New</a>';
+                    $sapisbnDisplay = '<a class="fw-bold updateisbn_pushlist_btn text-primary " data-id="'.$id.'" data-tempisbn="'.$tempisbn.'" >+ Update</a>';
                 }
 
                 $dateupdateDisplay ="<span class='fs--2'>".$dateupdate."</span>";
@@ -12435,7 +12762,82 @@ public function submit_convertalloc_new(Request $request) {
 
     }
 
+   public function EmailSubmittedForApproval(Request $request,$basedocnum = null,$submittedpernr = null,$approvalrsmpernr = null) {
 
+        $quser = userDetails($approvalrsmpernr);
+        $iduser = $quser->id;
+        $emailuser = $quser->EMAIL;
+
+        $qusersubmitted = userDetails($submittedpernr);
+        $aefullname = $qusersubmitted->FULLNAME;
+        $usernamesubmmited = $qusersubmitted->USERNAME;
+
+        $email = 'nico.padilla@cebookshop.com';
+        // $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
+
+        $qprojectionPeriodDetails = projection_period_details($basedocnum);
+        $projectionid = $qprojectionPeriodDetails->PROJECTIONID;
+        $username = $qprojectionPeriodDetails->USERNAME;
+
+        $token = secureTokenWithId($iduser,30);
+      
+        $baseUrl = url('/');
+
+        $ae = '';
+     
+        $linkforapproval= 'approvals/projection?pid='.$basedocnum.'&tk='.$token .'&name='.$usernamesubmmited.'&fname='. $aefullname . ' ' . $submittedpernr;
+
+        Mail::send('emails.EmailSubmittedForApproval',[
+            'linkforapproval' => $baseUrl . '/modules/' . $linkforapproval,
+            'aefullname' => $aefullname,
+            'projectionid' => $projectionid,
+        ], function($message) use($projectionid,$aefullname,$email)  {
+            $message->to($email)
+                    ->subject($aefullname . ' has submitted their projection for approval. PID: ' . $projectionid)
+                    ->cc('cesalesitinerary@cebookshop.com');;
+
+                    
+
+        });
+    }
+
+    public function EmailReturnProjection(Request $request,$basedocnum = null,$pernr = null,$remarks = null) {
+
+        $quser = userDetails($pernr);
+        $iduser = $quser->id;
+        $emailuser = $quser->EMAIL;
+
+        $email = 'nico.padilla@cebookshop.com';
+        // $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
+
+        $qprojectionPeriodDetails = projection_period_details($basedocnum);
+        $projectionid = $qprojectionPeriodDetails->PROJECTIONID;
+        $username = $qprojectionPeriodDetails->USERNAME;
+
+        $token = secureTokenWithId($iduser,30);
+      
+        $baseUrl = url('/');
+
+        $ae = '';
+     
+        $linkforapproval= 'createprojection?pid='.$basedocnum.'&tk='.$token.'&name='.$username;
+   
+      
+
+        Mail::send('emails.EmailReturnProjection',[
+            'linkforapproval' => $baseUrl . '/modules/' . $linkforapproval,
+            'remarks' => $remarks,
+            'projectionid' => $projectionid,
+        ], function($message) use($projectionid,$email)  {
+            $message->to($email)
+                    ->subject('Projection Returned in PID: ' . $projectionid)
+                    ->cc('cesalesitinerary@cebookshop.com');;
+
+                    
+
+        });
+    }
+    
     public function EmailForApprovalOVP(Request $request,$approvaltype = null,$docnum = null) {
 
         $token = secureTokenWithId('1343',30);

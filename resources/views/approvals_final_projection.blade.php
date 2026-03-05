@@ -140,7 +140,7 @@
                 <span class="input-group-text" id="basic-addon1">
                     Status
                 </span>
-                <span class="input-group-text status_text_creation text-primary" style="background-color:white !important;" id="basic-addon1">
+                <span class="input-group-text projperiodstatus text-primary" style="background-color:white !important;" id="basic-addon1">
                     {{-- @php echo $statusDisplay; @endphp --}}
                     
                     -
@@ -413,12 +413,12 @@
                           
                             <tr class="border">
                                 <th scope="col" class="text-center" width="12%">ISBN </th>
-                                <th scope="col" class="text-center" width="28%">Title </th>
-                                <th scope="col" class="text-center" width="8%">Amount </th>
-                                <th scope="col" class="text-center" width="8%">Unit </br> Price </th>
-                                <th scope="col" class="text-center" width="8%" title="Population">Popup.</th>
-                                <th scope="col" class="text-center" width="8%">Projtn</th>
-                                <th scope="col" class="text-center" width="8%">Approve </br> Qty</th>
+                                <th scope="col" class="text-center" width="21%">Title </th>
+                                <th scope="col" class="text-center" width="7%">Amount </th>
+                                <th scope="col" class="text-center" width="7%">Unit </br> Price </th>
+                                <th scope="col" class="text-center" width="11%" title="Population">Popup.</th>
+                                <th scope="col" class="text-center" width="11%">Projtn</th>
+                                <th scope="col" class="text-center" width="11%">Approve </br> Qty</th>
                                 <th scope="col" class="text-center" width="8%">Budget</th>
                         
                                 <th scope="col" class="text-center" width="5%">{{ getPreviousYear(1) }} </th>
@@ -1016,7 +1016,7 @@ $(document).on('submit', '.submit_return_projection', function(e) {
 
                     sweetalert("Refreshing page...","Projection returned to AE", icon = 'success', timer = '3000', btn = false);
                  
-
+                    $('.modal').modal('hide')
                     for_approval_projection_final_edit_customer_list(projdocnum,projectionusername)
 
                     // refreshPage(1000);

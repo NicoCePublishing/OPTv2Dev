@@ -199,22 +199,15 @@
                             <div class="col-md-12">
                                 <div class="input-group">
                                     <span class="input-group-text text-center" id="basic-addon1">
-                                     Temp Name
+                                     Temp Title Name
                                     </span>
-                                    <input class="form-control form-control-sm text-center un-cl update_customertemp_text" name="customername" required readonly="" type="text" >
+                                    <input class="form-control form-control-sm text-center new_pushlist_isbn_titlename" name="new_pushlist_isbn_titlename" required  type="text" >
                                  </div>
                             </div>
                             <div class="col-md-6">
                                
                             </div>
-                            <div class="col-md-9 mt-2">
-                                <div class="input-group">
-                                    <span class="input-group-text text-center" id="basic-addon1">
-                                    Update Customer Code
-                                    </span>
-                                    <input class="form-control form-control-sm text-center update_customertemp_customercode" name="customercode" required  type="text" >
-                                 </div>
-                              </div>
+                           
                               
                               
                           </div>

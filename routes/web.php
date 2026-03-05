@@ -297,6 +297,15 @@ Route::post('/submit_update_customer_temp', [Mkacontrol::class,'submit_update_cu
 Route::post('/submit_update_enddate_projectionid', [Mkacontrol::class,'submit_update_enddate_projectionid'])->name('submit_update_enddate_projectionid');
 
 Route::get('/submit_admin_users_retrieve_user_details', [Mkacontrol::class,'submit_admin_users_retrieve_user_details'])->name('submit_admin_users_retrieve_user_details');
+
+Route::post('/submit_unlink_customer', [Mkacontrol::class,'submit_unlink_customer'])->name('submit_unlink_customer');
+
+Route::post('/submit_link_customer', [Mkacontrol::class,'submit_link_customer'])->name('submit_link_customer');
+
+Route::post('/submit_update_activestatus_user', [Mkacontrol::class,'submit_update_activestatus_user'])->name('submit_update_activestatus_user');
+
+Route::post('/submit_admin_user_edit', [Mkacontrol::class,'submit_admin_user_edit'])->name('submit_admin_user_edit');
+
 //---
 
 

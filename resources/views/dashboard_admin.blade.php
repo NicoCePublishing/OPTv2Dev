@@ -15,7 +15,7 @@
 
 
 
-<div class="col-md-5 @if(rankView('IMD','CRM','CRM','AVP','CC')) {{ "d-none" }} @endif">
+<div class="col-md-8 @if(rankView('IMD','CRM','CRM','AVP','CC')) {{ "d-none" }} @endif">
     <div class="input-group @if($users->count() < 2) {{ "d-none" }} @else {{ "mb-1"}}  @endif ">
       <span class="input-group-text " id="basic-addon1">AE</span>
       <select class="form-control filterGroup"  required name="userFilterDashboard" id="userFilterDashboard" aria-label="Default select example">

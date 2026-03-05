@@ -100,16 +100,18 @@
                                   placeholder="Full Name...">
                           </div>
           
-                          <div class="col-md-6 d-none">
-                              <label class="form-label">Username</label>
-                              <input type="text" name="admin_user_edit_form_username"
-                                  class="form-control admin_user_edit_form_username"
-                                  readonly>
-                          </div>
+                  
                       </div>
           
                       <!-- Row 2 -->
                       <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Username</label>
+                            <input type="text" name="admin_user_edit_form_username"
+                                class="form-control un-cl admin_user_edit_form_username"
+                                readonly>
+                        </div>
+
                           <div class="col-md-6">
                               <label class="form-label">Password</label>
                               <input type="text" name="admin_user_edit_form_password"
@@ -119,60 +121,40 @@
           
                           <div class="col-md-6">
                               <label class="form-label">E-mail</label>
-                              <input type="email" name="admin_user_edit_form_email"
+                              <input type="text" name="admin_user_edit_form_email"
                                   class="form-control admin_user_edit_form_email"
                                   placeholder="Email...">
                           </div>
-                      </div>
-          
-                      <!-- Row 3 -->
-                      <div class="row mb-3">
+
                           <div class="col-md-6">
-                              <label class="form-label">Division</label>
-                              <select class="form-select admin_user_edit_form_division" name="admin_user_edit_form_division">
-                                  <option value="" selected disabled>Select in the list</option>
-                                  @foreach($division as $div)
-                                      <option value="{{$div->DIVISION}}">{{$div->DIVISION}}</option>
-                                  @endforeach
-                              </select>
-                          </div>
-          
-                          <div class="col-md-6">
-                              <label class="form-label">Active</label>
-                              <select class="form-select admin_user_edit_form_active" name="admin_user_edit_form_active">
-                                  <option value="1">Yes</option>
-                                  <option value="0">No</option>
-                              </select>
-                          </div>
-                      </div>
-          
-                      <!-- Row 4 -->
-                      <div class="row mb-3">
-                          <div class="col-md-6">
-                              <label class="form-label">Rank</label>
-                              <select class="form-select admin_user_edit_form_rank" name="admin_user_edit_form_rank">
-                                  <option value="" selected disabled>Select in the list</option>
-                                  @foreach($ranklist as $r)
-                                      <option value="{{$r->RANK}}">{{$r->RANK}}</option>
-                                  @endforeach
-                              </select>
-                          </div>
-          
-                          <div class="col-md-6">
-                              <label class="form-label">RSM</label>
-                              <select class="form-select admin_user_edit_form_rsm" name="admin_user_edit_form_rsm">
-                                  <option value="" selected disabled>Select in the list</option>
-                                  @foreach($rsmlist as $rs)
-                                      <option value="{{ trim($rs->PERNR) }}">
-                                          {{ $rs->PERNR . ' - ' . $rs->FULLNAME}}
-                                      </option>
-                                  @endforeach
-                              </select>
-                          </div>
-                      </div>
-          
-                      <!-- Row 5 -->
-                      <div class="row mb-3">
+                            <label class="form-label">Division</label>
+                            <select class="form-select admin_user_edit_form_division" name="admin_user_edit_form_division">
+                                <option value="" selected disabled>Select in the list</option>
+                                @foreach($division as $div)
+                                    <option value="{{$div->DIVISION}}">{{$div->DIVISION}}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rank</label>
+                            <select class="form-select admin_user_edit_form_rank" name="admin_user_edit_form_rank">
+                                <option value="" selected disabled>Select in the list</option>
+                                @foreach($ranklist as $r)
+                                    <option value="{{$r->RANK}}">{{$r->RANK}}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">RSM</label>
+                            <select class="form-select admin_user_edit_form_rsm" name="admin_user_edit_form_rsm">
+                                <option value="" selected disabled>Select in the list</option>
+                                @foreach($rsmlist as $rs)
+                                    <option value="{{ trim($rs->PERNR) }}">
+                                        {{ $rs->PERNR . ' - ' . $rs->FULLNAME}}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                           <div class="col-md-6">
                               <label class="form-label">SSM</label>
                               <select class="form-select admin_user_edit_form_ssm" name="admin_user_edit_form_ssm">
@@ -184,6 +166,33 @@
                                   @endforeach
                               </select>
                           </div>
+
+                      </div>
+          
+                      <!-- Row 3 -->
+                      <div class="row mb-3">
+                      
+          
+                          <div class="col-md-6 d-none">
+                              <label class="form-label">Active</label>
+                              <select class="form-select admin_user_edit_form_active" name="admin_user_edit_form_active">
+                                  <option value="1">Yes</option>
+                                  <option value="0">No</option>
+                              </select>
+                          </div>
+                          
+                      </div>
+          
+                      <!-- Row 4 -->
+                      <div class="row mb-3">
+                     
+          
+                 
+                      </div>
+          
+                      <!-- Row 5 -->
+                      <div class="row mb-3">
+                       
           
                           <div class="col-md-12 mt-2 d-flex justify-content-end">
                               <button type="submit" class="btn btn-primary w-25">
@@ -361,6 +370,62 @@ $(document).ready(function(){
       })
 
 
+      $(document).on('click','.useractive-status-sw',function (e) {
+        
+        var id = $(this).data('id');
+
+            if($(this).is(':checked')){
+               var v = '1';
+            }
+            else {
+                var v = '0';
+            }
+
+            $.ajax({
+                     url:"/submit_update_activestatus_user", 
+                     data: {
+                        v : v,
+                        id : id,
+                     },
+                     type:'POST',
+                     headers: {
+                              'X-CSRF-TOKEN': getCsrfToken() 
+                     },
+                     beforeSend: function() {
+                     
+                        showLoading()
+                     },
+                     success:function(data){
+                           console.log(data);
+                           hideLoading()
+                           
+                        //    var data = data[0];
+                           
+                           if(data.status == '2') {
+  
+                                //  sweetalert(" ","Status Updated!", icon = 'success', timer = '1000', btn = false);
+                                
+                                 var html = "" 
+                                  + "<span class='text-success fw-bold'>Status Updated!</span>"
+                                  + "";
+
+                                toastifyShow(html)  
+                           }
+                           else   {
+
+                                 swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                           }
+                           
+                        },
+                           error:function(data){
+                                 hideLoading();
+                                
+                                 swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                        }
+              });
+
+    });
+    
     $(document).on('submit','.submit_admin_user_add_new_expense', function(e) {
          e.preventDefault();
          var formData = new FormData(this);

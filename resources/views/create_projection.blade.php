@@ -408,7 +408,8 @@ $q = ProjectionPeriodList('0',trim(session('division')))->get();
                       </div>
                  </li>
             </div>  
-            <div class="col-md-9 pt-2 px-0 col-lg-9">
+          
+            <div class="col-md-3 pt-2 px-0 col-lg-3">
                 
                 
                     <!-- <a class="fw-bold btn btn-sm p-1 btn-primary projection_creation_add_new_books" data-bs-toggle="modal" data-bs-target="#LinkAccountsModal" href="#!">+ Link Accounts</a> -->
@@ -416,6 +417,27 @@ $q = ProjectionPeriodList('0',trim(session('division')))->get();
                         data-bs-target="#LinkAccountsModal" href="#!">+ Add Customer</a>
             
             </div> 
+            <div class="col-md-8 col-lg-8">
+                <div class="d-flex justify-content-end">
+              
+                    <span class="badge ms-1 mt-2 bg-success">
+                        Approved (<span class="approved-count">0</span>)
+                    </span>
+                    
+                    <span class="badge ms-1 mt-2 bg-info">
+                        For SSM Approval (<span class="ssm-count">0</span>)
+                    </span>
+                    
+                    <span class="badge ms-1 mt-2 bg-warning">
+                        For RSM Approval (<span class="rsm-count">0</span>)
+                    </span>
+                    
+                    <span class="badge ms-1 mt-2 bg-primary-500" title="Need to submit for approval.">
+                        Saved (<span class="saved-count">0</span>)
+                    </span>
+
+                </div>
+            </div>
             
         
         </div>
@@ -725,7 +747,18 @@ $q = ProjectionPeriodList('0',trim(session('division')))->get();
 
         <div class="card">
             <div class="row mx-2 pt-2">
-                <div class="col-md-5 text-end">
+                <div class="col-md-6">
+                    <div class="input-group nt_search border border-300">
+                        <span class="input-group-text text-primary" id="basic-addon1">
+                            + New Title
+                        </span>
+                            <input class="form-control text-center form-control-sm w-50 create_projection_search_title ui-autocomplete-input" name="" type="text" placeholder="Search Title Name, ISBN, Author...." autocomplete="off">
+    
+                    </div>
+                
+               
+                </div>
+                <div class="col-md-5 offset-md-1 text-end">
                     <div class="input-group border border-300">
                         <span class="input-group-text" id="basic-addon1">
                             Branch/Whouse
@@ -758,17 +791,7 @@ $q = ProjectionPeriodList('0',trim(session('division')))->get();
                    
                 
                 </div>
-                <div class="col-md-6 offset-md-1">
-                    <div class="input-group nt_search border border-300">
-                        <span class="input-group-text text-primary" id="basic-addon1">
-                            + New Title
-                        </span>
-                            <input class="form-control text-center form-control-sm w-50 create_projection_search_title ui-autocomplete-input" name="" type="text" placeholder="Search Title Name, ISBN, Author...." autocomplete="off">
-    
-                    </div>
-                
                
-                </div>
                
             </div>
            
@@ -1217,9 +1240,16 @@ function updateProjectionValues(className = 1) {
 var defaultProjectionQtyClass = $('.create_new_projection_projtn_qty');
 
 // if(className === 1) {
+var statusCounts = {
+    approved: 0,
+    for_ssm_approval: 0,
+    for_rsm_approval: 0,
+    returned_isbn: 0,
+    saved: 0
+};
 
     defaultProjectionQtyClass.each( function() {
-
+        
         var trClosest = $(this).closest('tr');
         var projectionQty = parseInt($(this).val()) || 0;
         var customercode = $(this).data('customercode');
@@ -1227,6 +1257,7 @@ var defaultProjectionQtyClass = $('.create_new_projection_projtn_qty');
         var title = trClosest.find('.create_new_projection_isbn_title').val();
         var disc = trClosest.find('.create_new_projection_isbn_disc').val();
         var populationqty = trClosest.find('.create_new_projection_population_qty').val();
+        var projtnstatus = trClosest.find('.create_new_projection_isbn_status').val();
         var unitp = trClosest.find('.create_new_projection_isbn_unitp').val();
         var lastyearsale = trClosest.find('.create_new_projection_isbn_prev1_sales').val();
         var lastyearsale = trClosest.find('.create_new_projection_isbn_prev1_sales').val();
@@ -1235,6 +1266,11 @@ var defaultProjectionQtyClass = $('.create_new_projection_projtn_qty');
         var customerlinetotalvalue =  $('.'+ customercode + 'linetotal');
         // var projtntotalvalue =  $('.'+ customercode + 'projtn');
         var projtntotalvalue =  $(`.create_new_projection_projtn_qty[data-customercode="${customercode}"]`);
+
+        if (statusCounts.hasOwnProperty(projtnstatus)) {
+            statusCounts[projtnstatus]++;
+        }
+
 
         var unitpInt = parseInt(unitp) || 0;
         var populationqtyInt = parseInt(populationqty);
@@ -1313,6 +1349,11 @@ var defaultProjectionQtyClass = $('.create_new_projection_projtn_qty');
 
         
     })
+
+    $('.approved-count').text(statusCounts.approved);
+    $('.ssm-count').text(statusCounts.for_ssm_approval);
+    $('.rsm-count').text(statusCounts.for_rsm_approval);
+    $('.saved-count').text(statusCounts.saved);
 
 // } else {
 
