@@ -123,13 +123,14 @@
                        </tr>
                        <tr>
                             {{-- <th scope="col" class="text-center" width="3%">#</th> --}}
-                            <th scope="col" class="text-center" width="25%">RSM</th>
+                            <th scope="col" class="text-center" width="20%">RSM</th>
                             <th scope="col" class="text-center" width="26%">Name</th>
-                            <th scope="col" class="text-center" width="8%">Total <br> Projection</th>
-                            <th scope="col" class="text-center" width="8%">Returned</th>
-                            <th scope="col" class="text-center" width="8%">Pending <br> (RSM)</th>
-                            <th scope="col" class="text-center" width="8%">Pending <br> (SSM)</th>
-                            <th scope="col" class="text-center" width="8%">Approved</th>
+                            <th scope="col" class="text-center" width="7%">Total <br> Projection</th>
+                            <th scope="col" class="text-center" width="7%">Saved</th>
+                            <th scope="col" class="text-center" width="7%">Returned</th>
+                            <th scope="col" class="text-center" width="7%">Pending <br> (RSM)</th>
+                            <th scope="col" class="text-center" width="7%">Pending <br> (SSM)</th>
+                            <th scope="col" class="text-center" width="7%">Approved</th>
                             <th scope="col" class="text-center" width="12%">Completed <br> (%)</th>
                     </tr>
                     </thead>
@@ -167,13 +168,16 @@ $(document).ready(function(){
             var projApprovalstatusListableURL =  "/datatable_reports_projapprovalstatus?basedocnum="+basedocnum+"&pernr="+pernr;
             var projApprovalstatusListableColumns = [
                    
+
+
                      { "data": "pernrrsmname" },
                      { "data": "pernrname" },
-                     { "data": "totalprojtn" },
-                     { "data": "totalprojtnreturned" },
-                     { "data": "totalprojtnpendingrsm" },
-                     { "data": "totalprojtnpendingssm" },
-                     { "data": "totalprojtnapproved" },
+                     { "data": "totalprojtnvalue" },
+                     { "data": "totalsavedvalue" },
+                     { "data": "totalreturnedvalue" },
+                     { "data": "totalpendingrsmvalue" },
+                     { "data": "totalpendingssmvalue" },
+                     { "data": "totalapprovedvalue" },
                      { "data": "percent_completed" },
             ];
 
@@ -193,13 +197,14 @@ $(document).ready(function(){
             var projApprovalstatusListableURL =  "/datatable_reports_projapprovalstatus?basedocnum="+basedocnum+"&pernr="+pernr;
             var projApprovalstatusListableColumns = [
                    
-                     { "data": "pernrrsmname" },
+                    { "data": "pernrrsmname" },
                      { "data": "pernrname" },
-                     { "data": "totalprojtn" },
-                     { "data": "totalprojtnreturned" },
-                     { "data": "totalprojtnpendingrsm" },
-                     { "data": "totalprojtnpendingssm" },
-                     { "data": "totalprojtnapproved" },
+                     { "data": "totalprojtnvalue" },
+                     { "data": "totalsavedvalue" },
+                     { "data": "totalreturnedvalue" },
+                     { "data": "totalpendingrsmvalue" },
+                     { "data": "totalpendingssmvalue" },
+                     { "data": "totalapprovedvalue" },
                      { "data": "percent_completed" },
             ];
 

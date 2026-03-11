@@ -74,50 +74,8 @@
 </div>
 
 
-@if(rankView('IMD','CRM','CRM','AVP','AVP','CC'))
 
-<div class="col-12 mt-1 mb-3 col-xxl-6">
-  <div class="row g-3">
-    <div class="col-12 col-md-12">
-      <div class="card h-100">
-        <div class="card-body">
-          <div class="d-flex mb-2 justify-content-between border-bottom">
-            <div class=" ">
-              {{-- {{ date_now('year') }}  --}}
-              <h4 class=""> Projection Summary</h4>
-            </div>
-          
-          </div>
-          <table class="fs--1 table table-striped bg-white text-center" id="dashboard-projectionsummary-list">
-            <thead class="border border-1" width="100%">
-            
-              <tr>
-                
-            
-                  <th scope="col" class="text-center" width="15%">ISBN</th>
-                  <th scope="col" class="text-center" width="40%">Description</th>
-                  <th scope="col" class="text-center" width="11%">Edition</th>
-                  <th scope="col" class="text-center" width="12%">Projection</th>
-                  <th scope="col" title="Allocation" class="text-center" width="12%">Alloc.</th>
-                  <th scope="col" class="text-center" width="10%">Alloc. Rate</th>
-          
-                 
-              </tr>
-            </thead>
-        
-
-        </table>
-
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-@endif
-
-@if(rankView('AE','RSM','SSM'))
+@if(rankView('AE','RSM','SSM','AVP'))
 
 
 <div class="col-12 mt-1 col-xl-12 col-xxl-12">
@@ -393,6 +351,48 @@
 
 
 
+@if(rankView('IMD','CRM','CRM','AVP','AVP','CC'))
+
+<div class="col-12 mt-1 mb-3 col-xxl-6">
+  <div class="row g-3">
+    <div class="col-12 col-md-12">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex mb-2 justify-content-between border-bottom">
+            <div class=" ">
+              {{-- {{ date_now('year') }}  --}}
+              <h4 class=""> Projection Summary</h4>
+            </div>
+          
+          </div>
+          <table class="fs--1 table table-striped bg-white text-center" id="dashboard-projectionsummary-list">
+            <thead class="border border-1" width="100%">
+            
+              <tr>
+                
+            
+                  <th scope="col" class="text-center" width="15%">ISBN</th>
+                  <th scope="col" class="text-center" width="40%">Description</th>
+                  <th scope="col" class="text-center" width="11%">Edition</th>
+                  <th scope="col" class="text-center" width="12%">Projection</th>
+                  <th scope="col" title="Allocation" class="text-center" width="12%">Alloc.</th>
+                  <th scope="col" class="text-center" width="10%">Alloc. Rate</th>
+          
+                 
+              </tr>
+            </thead>
+        
+
+        </table>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+@endif
 
 <div class="offcanvas offcanvas-start content-offcanvas border offcanvas-backdrop-transparent border-start border-300 shadow-none bg-100" id="DashboardTitleCustomerProjtnOffCanvas" tabindex="-1" aria-labelledby="offcanvasLeftLabel">
   <div class="offcanvas-header pb-0">

@@ -696,10 +696,10 @@ class Mkacontrol extends Controller
                 SUM(CASE WHEN t1.DATEALLOCATED IS NULL  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS NOTYETALLOCATED,
                 SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
                 SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_RETURNEDAMOUNT,
-                SUM(CASE WHEN t1.STATUS != 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
+                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
                 SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
                 SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
-                SUM(CASE WHEN t1.STATUS != 'approved' AND  t1.STATUS != 'returned_isbn' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
+                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
                 SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
                 SUM(CASE WHEN t2.BSA = '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_BSA,
                 SUM(CASE WHEN t2.BSA != '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_NONBSA,
@@ -825,10 +825,10 @@ class Mkacontrol extends Controller
                     SUM(CASE WHEN t1.DATEALLOCATED IS NULL  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS NOTYETALLOCATED,
                     SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
                     SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_RETURNEDAMOUNT,
-                    SUM(CASE WHEN t1.STATUS != 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
+                    SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
                     SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
                     SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
-                    SUM(CASE WHEN t1.STATUS != 'approved' AND  t1.STATUS != 'returned_isbn' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
+                    SUM(CASE WHEN t1.STATUS != 'approved'  THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
                     SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
                     SUM(CASE WHEN t2.BSA = '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_BSA,
                     SUM(CASE WHEN t2.BSA != '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_NONBSA,
@@ -1333,7 +1333,7 @@ class Mkacontrol extends Controller
 
     public function login_admin (Request $request) {
         
-        $username = $request->input("username");
+        $username = $request->input("username");    
         $pass = $request->input("password");
         
         $user = OPTv2User::where([
@@ -2121,41 +2121,69 @@ class Mkacontrol extends Controller
 
     }
 
-    public function submit_remove_zero_projtn(Request $request)
+   public function submit_remove_zero_projtn(Request $request)
     {
+        $pernr = session('pernr');
         $customercode = $request->input('customercode');
         $isbn = $request->input('isbn');
         $projdocnum = $request->input('projdocnum');
         $date_now = date_now('dateonly');
-        
+
         $html = "";
         $status = 404;
-    
-        // Find matching projection detail + header
-        $qcheck = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+
+        $baseQuery = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
             ->leftJoin('OPTV2PROJECTIONH as t2', 't1.DOCNUM', '=', 't2.DOCNUM')
             ->where('t2.CUSTOMER', $customercode)
             ->where('t1.EAN11', $isbn)
             ->where('t1.BASEDOCNUM', $projdocnum)
-            ->select('t1.*', 't1.SUBMIT')
+            ->where('t1.PERNR', $pernr);
+
+        $qcheck = (clone $baseQuery)
+            ->select('t1.*','t1.SUBMIT')
             ->first();
-    
+
         if (!$qcheck) {
-            $status = 403; // no record found
+
+            $status = 403;
+
         } else {
+
             if ($qcheck->SUBMIT !== '1') {
-    
-                // Delete only from detail table
-                OPTv2Projectiond::where('BASEDOCNUM', $projdocnum)
-                    ->where('EAN11', $isbn)
-                    ->delete();
-    
-                $status = 2; // success
+
+                $rows = (clone $baseQuery)
+                    ->select('t1.id','t1.PERNR','t1.EAN11','t1.QTY')
+                    ->get();
+
+                foreach ($rows as $row) {
+
+                    OPTv2Logs::create([
+                        "REFERENCE" => $customercode,
+                        "REMARKS" => "id:".$row->id.", ". $row->EAN11 .", ". $row->QTY ,
+                        "USERID" => $row->PERNR,
+                        "DOCDATE" => $date_now,
+                        "LOGTYPE" => 'deleteprojection',
+                    ]);
+
+                }
+
+                // (clone $baseQuery)->update([
+                //          "QTY" => '0',
+                //         "PROJECTION" => '0',
+                //         "LINETOTAL" => '0', 
+                // ]);
+                (clone $baseQuery)->delete();
+
+                $status = 2;
+
             } else {
-                $status = 403; // cannot delete, already submitted
+
+                $status = 403;
+
             }
+
         }
-    
+
         return response()->json([
             'status' => $status,
             'html' => $html,
@@ -4338,25 +4366,35 @@ public function datatable_reports_projapprovalstatus(Request $request) {
 
     $num = 0;
 
-    $qprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
-                ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM')
-                ->selectRaw("
-                        t1.PERNR,
-                     
-                        SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
-                        SUM(CAST(t1.QTY AS INT)) as TOTALFINALPROJTN,
-                        SUM(CASE WHEN t1.STATUS = 'returned_isbn' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
-                        SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
-                        SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
-                        SUM(CASE WHEN t1.STATUS != 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
-                        SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
-                        MAX(t2.PERNRNAME) as PERNRNAME
-                        ")
-                ->whereNotNull('t1.SUBMIT')
-                ->where('t1.BASEDOCNUM',$basedocnum)
-                ->whereIn('t1.PERNR',$pernrfilter)
-                ->groupBy('t1.PERNR')
-                ;
+    $qprojectiond = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+                            ->leftJoin('OPTV2PROJECTIONH as t2', 't1.DOCNUM', '=', 't2.DOCNUM')
+                            ->selectRaw("
+                                t1.PERNR,
+
+                                SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
+                                SUM(CAST(t1.QTY AS INT)) as TOTALFINALPROJTN,
+
+                                SUM(CASE WHEN t1.STATUS = 'returned_isbn' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
+                                SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
+                                SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
+                                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
+                                SUM(CASE WHEN t1.STATUS = 'saved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS SAVED,
+                                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
+
+                                SUM(CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS DECIMAL(18,2))) AS TOTALPROJTNVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'returned_isbn' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_RETURNEDVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_PENDINGRSMVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_PENDINGSSMVALUE,
+                                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_PENDINGVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'saved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_SAVEDVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_APPROVEDVALUE,
+
+                                MAX(t2.PERNRNAME) as PERNRNAME
+                            ")
+                            // ->whereNotNull('t1.SUBMIT')
+                            ->where('t1.BASEDOCNUM', $basedocnum)
+                            ->whereIn('t1.PERNR', $pernrfilter)
+                            ->groupBy('t1.PERNR');
 
 
 
@@ -4412,6 +4450,22 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                 $totalprojtnpendingrsm = $risbnprojd->TOTAL_PENDINGRSM;
                 $totalprojtnpendingssm = $risbnprojd->TOTAL_PENDINGSSM;
                 $totalprojtnapproved = $risbnprojd->TOTAL_APPROVED;
+
+                $totalprojtnvalue = $risbnprojd->TOTALPROJTNVALUE;
+                $totalreturnedvalue = $risbnprojd->TOTAL_RETURNEDVALUE;
+                $totalpendingrsmvalue = $risbnprojd->TOTAL_PENDINGRSMVALUE;
+                $totalpendingssmvalue = $risbnprojd->TOTAL_PENDINGSSMVALUE;
+                $totalpendingvalue = $risbnprojd->TOTAL_PENDINGVALUE;
+                $totalapprovedvalue = $risbnprojd->TOTAL_APPROVEDVALUE;
+                $totalsavedvalue = $risbnprojd->TOTAL_SAVEDVALUE;
+
+                $totalprojtnvalueDisplay = number_format($totalprojtnvalue);
+                $totalreturnedvalueDisplay = number_format($totalreturnedvalue);
+                $totalpendingrsmvalueDisplay = number_format($totalpendingrsmvalue);
+                $totalpendingssmvalueDisplay = number_format($totalpendingssmvalue);
+                $totalpendingvalueDisplay = number_format($totalpendingvalue);
+                $totalapprovedvalueDisplay = number_format($totalapprovedvalue);
+                $totalsavedvalueDisplay = number_format($totalsavedvalue);
              
                 $pernrnameDisplay = '<span class="line-clamp-1" title="'.$pernrname.'"> '.$pernrname.' </span>';
                     // 🔹 hanapin PERNR ng RSM gamit employee PERNR
@@ -4457,7 +4511,14 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                       </div>
                 ';
                 
-    
+                // $percentCompletedDisplay = $percentCompleted;
+
+                // $totalreturnedvalueDisplay = 
+                // $totalpendingrsmvalueDisplay 
+                // $totalpendingssmvalueDisplay 
+                // $totalpendingvalueDisplay = n
+                // $totalapprovedvalueDisplay = 
+
                     $response[] = array(
                         "num" => $num,
                         "pernr" => $pernr,
@@ -4469,6 +4530,15 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                          "totalprojtnpendingrsm" => $totalprojtnpendingrsm,
                          "totalprojtnpendingssm" => $totalprojtnpendingssm,
                          "totalprojtnapproved" => $totalprojtnapproved,
+                         
+                         "totalprojtnvalue" => $totalprojtnvalueDisplay,
+                         "totalreturnedvalue" => $totalreturnedvalueDisplay,
+                         "totalpendingrsmvalue" => $totalpendingrsmvalueDisplay,
+                         "totalpendingssmvalue" => $totalpendingssmvalueDisplay,
+                         "totalpendingvalue" => $totalpendingvalueDisplay,
+                         "totalapprovedvalue" => $totalapprovedvalueDisplay,
+                         "totalsavedvalue" => $totalsavedvalueDisplay,
+
                          "completed" => $completed,
                          "percent_completed" => $percentCompletedDisplay
                     
@@ -4504,7 +4574,7 @@ public function datatable_reports_projprogress(Request $request) {
         $pernr = filter_user_list()->pluck('PERNR')->toArray();
     } else {
      
-        $pernr[] = $_pernr;
+        $pernr[] = trim($_pernr);
     }
 
     $num = 0;
@@ -5862,7 +5932,9 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
              $title = $risbn->titlename;
              $qty = $risbn->qty;
              $disc = $risbn->disc;
-             $isbnunitprice = $risbn->price ?: 0 ;
+             $qgetISBNDetails = getISBNDetails($isbn);
+             $isbnunitprice = $qgetISBNDetails->KBETRCE ?? 0;
+            //  $isbnunitprice = $risbn->price ?: 0 ;
              $population = $risbn->population;
              $projection = $risbn->qty;
              $linetotal = $risbn->net_price;
@@ -5876,7 +5948,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                          
             $titleDisplay = '<span class="line-clamp-1" title="'.$title.'"> '.$title.'</span> ' ;
              $qtyFinal = number_format($qty);
-             $isbnunitpriceDisplay = number_format($isbnunitprice);
+             $isbnunitpriceDisplay = $isbnunitprice;
              // if($isbn !== ''){
                  
              $response['customerisbnbudgetqty'][] = array(
@@ -7173,6 +7245,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
         $query = OPTv2Projectiond::where('BASEDOCNUM',$projdocnum)
                                 ->where('USERNAME',$staff)
+                                ->where('QTY', '!=', '0')
                                 ->whereNull('SUBMIT');
 
      
@@ -8003,7 +8076,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         
         $qthisprojtnperiod = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                                             ->selectRaw("
-                                                SUM(CAST(LINETOTAL AS INT)) as TOTALTHISPROJTNPERIOD
+                                                SUM(CAST(LINETOTAL AS DECIMAL(18,2)))  as TOTALTHISPROJTNPERIOD
                                             ")
                                             // ->where('APPROVED','1')
                                             ->where('BASEDOCNUM',$projdocnum)
@@ -8011,7 +8084,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                                             ->first();
         $qytdprojtn = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                                         ->selectRaw("
-                                            SUM(CAST(LINETOTAL AS INT)) as TOTALTHISYEARPROJTNPERIOD
+                                            SUM(CAST(LINETOTAL AS DECIMAL(18,2)))  as TOTALTHISYEARPROJTNPERIOD
                                         ")
                                         ->leftJoin('OPTV2PROJECTIONPERIOD as t2','t1.BASEDOCNUM','=','t2.DOCNUM')
                                         ->where('APPROVED','1')
@@ -9311,14 +9384,13 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         foreach ($docnum_input as $i => $cc){
 
             $docnumapproves[] = $docnum_input[$i] ?? null;
-            // $isbnapproves[] = $isbn_input[$i] ?? null;
 
-            $docnum = $docnum_input[$i];
-            $customercode = $customercode_input[$i];
-            $linetotal = $linetotal_input[$i];
-            $rsm_qty = $rsm_qty_input[$i];
-            $isbn = $isbn_input[$i];
-            $isbn_approve = $isbn_approve_input[$i];
+            $docnum = $docnum_input[$i] ?? null;
+            $customercode = $customercode_input[$i] ?? null;
+            $linetotal = $linetotal_input[$i] ?? 0;
+            $rsm_qty = $rsm_qty_input[$i] ?? 0;
+            $isbn = $isbn_input[$i] ?? null;
+            $isbn_approve = $isbn_approve_input[$i] ?? null;
 
             if($isbn_approve == '1') {
 
@@ -9567,11 +9639,11 @@ public function approve_projection_final_isbn(Request $request) {
 
             if($isbn_final_approve == '1') {
                 
-                    $docnum = $docnum_input[$i];
-                    $customercode = $customercode_input[$i];
-                    $linetotal = $linetotal_input[$i];
-                    $approve_qty = $approve_qty_input[$i];
-                    $isbn = $isbn_input[$i];
+                    $docnum = $docnum_input[$i] ?? null;
+                    $customercode = $customercode_input[$i] ?? null;
+                    $linetotal = $linetotal_input[$i] ?? null;
+                    $approve_qty = $approve_qty_input[$i] ?? null;
+                    $isbn = $isbn_input[$i] ?? null;
         
         
                     $notemptyapprove = true;
@@ -9810,6 +9882,8 @@ public function isbn_create_projection(Request $request) {
         $ok = OPTv2Projectiond::upsert([[
             "DOCNUM" => $docnum,
             "EAN11" => $isbn,
+            "BASEDOCNUM" => $projdocnum,
+            "USERNAME" => $staff,
             "LINENUM" => $linenum,
             "DESCRIPTION" => $isbn_title,
             "MATNR" => $matnr,
@@ -9823,9 +9897,7 @@ public function isbn_create_projection(Request $request) {
             "AUTHOR" => $author,
             "COPYRIGHT" => $copyright,
             "PROJECTIONID" => $projid,
-            "BASEDOCNUM" => $projdocnum,
             "PERNR" => $pernr,
-            "USERNAME" => $staff,
             "STATUS" => $statusdb,
             "SUPPLEMENTAL" => $projsupplemental,
             "created_at" => $date_now_full,
@@ -9835,7 +9907,7 @@ public function isbn_create_projection(Request $request) {
             "SAVED" => '1',
             "BRANCHWHOUSE" => $branchwhouse,
         ]],
-        ['DOCNUM', 'EAN11'],
+        ['DOCNUM', 'EAN11','BASEDOCNUM','USERNAME'],
         [
             'LINENUM', 'DESCRIPTION', 'MATNR', 'ORIGINALUNITP', 'UNITP',
             'DISC', 'POPULATION', 'QTY', 'PROJECTION', 'LINETOTAL',
@@ -10091,14 +10163,6 @@ public function isbn_create_projection(Request $request) {
 //             $status = 410;
 //         } else {
 
-//             // $qdeleteexistingProjectionidh = OPTV2Projectionh::where('BASEDOCNUM',$projdocnum)
-//             //                                             ->whereNull('SUBMIT')
-//             //                                             ->where('USERNAME',$staff)
-//             //                                             ->delete();
-//             // $qdeleteexistingProjectionidd = OPTV2Projectiond::where('BASEDOCNUM',$projdocnum)
-//             //                                             ->whereNull('SUBMIT')
-//             //                                             ->where('USERNAME',$staff)
-//             //                                             ->delete();
 
 //             if(!empty($insertprojh)) {
 
@@ -12773,7 +12837,7 @@ public function submit_convertalloc_new(Request $request) {
         $usernamesubmmited = $qusersubmitted->USERNAME;
 
         $email = 'nico.padilla@cebookshop.com';
-        // $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
+        //  $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
 
         $qprojectionPeriodDetails = projection_period_details($basedocnum);
         $projectionid = $qprojectionPeriodDetails->PROJECTIONID;
@@ -12808,7 +12872,7 @@ public function submit_convertalloc_new(Request $request) {
         $emailuser = $quser->EMAIL;
 
         $email = 'nico.padilla@cebookshop.com';
-        // $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
+        //  $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
 
         $qprojectionPeriodDetails = projection_period_details($basedocnum);
         $projectionid = $qprojectionPeriodDetails->PROJECTIONID;

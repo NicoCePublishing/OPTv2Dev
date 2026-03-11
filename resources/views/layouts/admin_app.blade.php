@@ -708,9 +708,9 @@ table.dataTable thead th {
                 @endif
 
 
-                @if(rankView('CRM','IMD'))
+                @if(rankView('CRM','IMD','AVP'))
 
-                    <div class="nav-item-wrapper d-none"><a class="nav-link @if( count($segment) > 1 &&  $segment[1] == 'projectionapprovalstatus')  {{ 'active' }} @endif label-1" 
+                    <div class="nav-item-wrapper"><a class="nav-link @if( count($segment) > 1 &&  $segment[1] == 'projectionapprovalstatus')  {{ 'active' }} @endif label-1" 
                         href="{{ route('reports_projection_approval_status') }}" role="button" data-bs-toggle="" aria-expanded="false">
                         <div class="d-flex align-items-center"><span class="nav-link-icon"><span data-feather="flag"></span></span><span class="nav-link-text-wrapper">
                             <span class="nav-link-text">Projection Approval </br> Status</span>
