@@ -1091,62 +1091,63 @@ $(document).on('click','.for_approval_projection_final_edit_customerisbn_approve
 
 
 });
-$(document).on('submit','.submit_approve_projection_final',function (e) {
 
-    e.preventDefault();
+// $(document).on('submit','.submit_approve_projection_final',function (e) {
 
-    var projdocnum = "{{request('pid')}}";
-    var username = "{{request('name')}}";
-    var formData = new FormData(this);
+//     e.preventDefault();
+
+//     var projdocnum = "{{request('pid')}}";
+//     var username = "{{request('name')}}";
+//     var formData = new FormData(this);
 
 
-    $.ajax({
-        url: "/submit_approve_projection_final?projdocnum="+projdocnum+"&username="+username,
-        data: formData,
-        processData: false,
-        contentType: false,
-        type: 'POST',
-        beforeSend: function() {
-            showLoading();
-        },
-        success: function(data) {
-            console.log(data);
-            hideLoading();
+//     $.ajax({
+//         url: "/submit_approve_projection_final?projdocnum="+projdocnum+"&username="+username,
+//         data: formData,
+//         processData: false,
+//         contentType: false,
+//         type: 'POST',
+//         beforeSend: function() {
+//             showLoading();
+//         },
+//         success: function(data) {
+//             console.log(data);
+//             hideLoading();
 
-            if (data.status == "2") {
+//             if (data.status == "2") {
 
-                sweetalert("Refreshing list...","Projection Approved!", icon = 'success', timer = '3000', btn = false);
+//                 sweetalert("Refreshing list...","Projection Approved!", icon = 'success', timer = '3000', btn = false);
             
-                for_approval_projection_final_edit_customer_list(projdocnum,projectionusername)
+//                 for_approval_projection_final_edit_customer_list(projdocnum,projectionusername)
 
-                // refreshPage(1000);
+//                 // refreshPage(1000);
 
 
 
-            }
-            else if (data.status == "403") { 
-                sweetalert("Please select ISBN to approve","", icon = 'warning', timer = '3000', btn = false);
+//             }
+//             else if (data.status == "403") { 
+//                 sweetalert("Please select ISBN to approve","", icon = 'warning', timer = '3000', btn = false);
             
-            }
-            else {
-                swal("Oops...", "Please contact the administrator", "error");
-            }
+//             }
+//             else {
+//                 swal("Oops...", "Please contact the administrator", "error");
+//             }
 
-            ajaxInProgress = false;
-        },
-        error: function(data) {
+//             ajaxInProgress = false;
+//         },
+//         error: function(data) {
     
-            swal("Oops...", "Something went wrong. Please contact your administrator", "error");
-            hideLoading();
+//             swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+//             hideLoading();
 
-            ajaxInProgress = false;
-        }
+//             ajaxInProgress = false;
+//         }
         
-    });
+//     });
 
 
     
-})
+// })
 
 $(document).on('click','.forfinalapproval_return_isbn',function (e) {
 
@@ -1348,9 +1349,63 @@ $(document).on('click','.btn-approve',function (e) {
     .then((willCancel) => {
 
         
+        var projdocnum = "{{request('pid')}}";
+        var username = "{{request('name')}}";
+
+        
         if (willCancel) {
             
-            $('.submit-approve-projection-btn').trigger('click');
+            var formData = new FormData();
+
+
+            $('.for_approval_projection_final_edit_customerisbn_approve_check:checked').each(function () {
+                formData.append('forapproval_projection_final_docnum[]', $(this).data('docnum'));
+          
+            });
+
+         
+
+            $.ajax({
+                url: "/submit_approve_projection_final?projdocnum="+projdocnum+"&username="+username,
+                data: formData,
+                processData: false,
+                contentType: false,
+                type: 'POST',
+                headers: {
+                        'X-CSRF-TOKEN': getCsrfToken() 
+                },
+                beforeSend: function() {
+                    showLoading();
+                },
+                success: function(data) {
+                    console.log(data);
+                    hideLoading();
+
+                    if (data.status == "2") {
+
+                        sweetalert("Refreshing list...","Projection Approved!", icon = 'success', timer = '3000', btn = false);
+                    
+                        for_approval_projection_final_edit_customer_list(projdocnum,username)
+
+                    }
+                    else if (data.status == "403") { 
+                        sweetalert("Please select ISBN to approve","", icon = 'warning', timer = '3000', btn = false);
+                    
+                    }
+                    else {
+                        swal("Oops...", "Please contact the administrator", "error");
+                    }
+
+                    ajaxInProgress = false;
+                },
+                error: function(data) {
+
+                    swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                    hideLoading();
+
+                    ajaxInProgress = false;
+                }
+            });
 
         } 
         else {
@@ -1450,7 +1505,9 @@ $(document).on('change','.for_approval_projection_final_edit_approve_qty', funct
         var v = $(this).val();
         var trClosest = $(this).closest('tr');
         // var lastyearsale = $(this).data('lastyearsale');
+        var docnum = $(this).data('docnum');
         var customercode = $(this).data('customercode');
+        var aepernr = $(this).data('aepernr');
         var projection = trClosest.find('.for_approval_projection_final_edit_projtn_qty').val();
         var isbn = trClosest.find('.for_approval_projection_final_edit_isbn').val();
         var title = trClosest.find('.for_approval_projection_final_edit_isbn_title').val();
@@ -1475,11 +1532,49 @@ $(document).on('change','.for_approval_projection_final_edit_approve_qty', funct
         $('.'+customercode+isbn+'ssmqty').val(v)
         $('.'+customercode+isbn+'linetotal').val(linetotal)
 
-        var html = "" 
-                    + "<span class='text-success fw-bold'>Approve qty updated</span>"
-                    + "";
+        $.ajax({
+                url:"/submit_changeprojection_final_approve_qty", 
+                data: {
+                    docnum : docnum,
+                    aepernr : aepernr,
+                    isbn : isbn,
+                    qty : v,
+                    linetotal : linetotal,
+                },
+                type:'POST',
+                headers: {
+                        'X-CSRF-TOKEN': getCsrfToken() 
+                },
+                beforeSend: function() {
+                
+                    showLoading()
+                },
+                success:function(data){
+                    console.log(data);
 
-        toastifyShow(html)  
+                    hideLoading();
+                    if(data.status = '2'){
+
+                        var html = "" 
+                                    + "<span class='text-success fw-bold'>Approve Qty Updated!</span>"
+                                    + "";
+
+                        toastifyShow(html)  
+
+                    }
+                    else {
+
+                        swal("Oops...", "Something went wrong updating branch/whouse. Please contact your administrator", "error");
+                        
+                    }
+                    
+                    },
+                    error:function(data){
+                            hideLoading();
+                            
+                            swal("Oops...", "Something went wrong updating branch/whouse. Please contact your administrator", "error");
+                    }
+        });
 
         updateProjectionValues();
 

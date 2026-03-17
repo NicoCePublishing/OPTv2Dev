@@ -29,6 +29,7 @@ use App\Models\CrmProjection;
 use App\Models\OPTv2ProjectionPeriod;
 use App\Models\OPTv2Projectionh;
 use App\Models\OPTv2Projectiond;
+use App\Models\OPTv2Projectionda;
 use App\Models\OPTv2Allocated;
 use App\Models\OPTv2Files;
 use App\Models\OPTv2CustomerLink;
@@ -183,6 +184,7 @@ class Mkacontrol extends Controller
     public function testconnection(Request $request)
     {   
 
+       
         // $basedocnum = '260';
         // $pernr = '00001219';
         // $rsmm = '00099985';
@@ -690,20 +692,24 @@ class Mkacontrol extends Controller
         $qdashboardprojectioncount =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM')
         ->selectRaw("
-                SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
-                SUM(CAST(t1.QTY AS INT)) as TOTALFINALPROJTN,
-                SUM(CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT)) as TOTALPROJTNAMOUNT,
-                SUM(CASE WHEN t1.DATEALLOCATED IS NULL  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS NOTYETALLOCATED,
-                SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
-                SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_RETURNEDAMOUNT,
-                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
-                SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
-                SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
-                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
-                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
-                SUM(CASE WHEN t2.BSA = '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_BSA,
-                SUM(CASE WHEN t2.BSA != '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_NONBSA,
-                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_APPROVEDAMOUNT
+                                SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
+                                SUM(CAST(t1.QTY AS INT)) as TOTALFINALPROJTN,
+
+                                SUM(CASE WHEN t1.STATUS = 'returned_isbn' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
+                                SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
+                                SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
+                                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
+                                SUM(CASE WHEN t1.STATUS = 'saved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS SAVED,
+                                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
+
+                                SUM(CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS DECIMAL(18,2))) AS TOTALPROJTNVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'returned_isbn' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_RETURNEDVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_PENDINGRSMVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_PENDINGSSMVALUE,
+                                SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_PENDINGVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'saved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_SAVEDVALUE,
+                                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_APPROVEDVALUE
+
                 ")
         ->where('t1.BASEDOCNUM',$basedocnum)
         ->first();
@@ -825,10 +831,10 @@ class Mkacontrol extends Controller
                     SUM(CASE WHEN t1.DATEALLOCATED IS NULL  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS NOTYETALLOCATED,
                     SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
                     SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_RETURNEDAMOUNT,
-                    SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
+                    SUM(CASE WHEN t1.STATUS != 'approved' AND t1.STATUS != 'returned_isbn'  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
                     SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
                     SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
-                    SUM(CASE WHEN t1.STATUS != 'approved'  THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
+                    SUM(CASE WHEN t1.STATUS != 'approved' AND t1.STATUS != 'returned_isbn'  THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
                     SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
                     SUM(CASE WHEN t2.BSA = '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_BSA,
                     SUM(CASE WHEN t2.BSA != '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_NONBSA,
@@ -4467,7 +4473,7 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                 $totalapprovedvalueDisplay = number_format($totalapprovedvalue);
                 $totalsavedvalueDisplay = number_format($totalsavedvalue);
              
-                $pernrnameDisplay = '<span class="line-clamp-1" title="'.$pernrname.'"> '.$pernrname.' </span>';
+                $pernrnameDisplay = '<span class="text-start px-2 line-clamp-1" title="'.$pernrname.'"> '.$pernrname.' </span>';
                     // 🔹 hanapin PERNR ng RSM gamit employee PERNR
                 $rsmPernr = $pernrToRSM[$pernr] ?? null;
 
@@ -4485,8 +4491,12 @@ public function datatable_reports_projapprovalstatus(Request $request) {
 
                 $percentCompleted = $totalfinalprojtn > 0 ? round(($completed / $totalfinalprojtn) * 100) : 0 ?? 0;
 
-                // $percentCompleted = 71;
+                //Kung talagang may konti pa na pending qty dapat d yan mag 100%
+                if ($totalprojtnpending > 0 && $percentCompleted >= 100) {
+                    $percentCompleted = 99;
+                }
 
+                $statusbadgeDisplay =    $statusDisplay = status_display('pending','badge','0.7');
                 if ($percentCompleted <= 30) {
                     $percentCompletedColor = 'bg-warning';
                 } 
@@ -4497,6 +4507,7 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                     $percentCompletedColor = 'bg-info'; // usually blue
                 } elseif ($percentCompleted >= 100) {
                     $percentCompletedColor = 'bg-success';
+                    $statusbadgeDisplay =    $statusDisplay = status_display('approved','badge','0.7');
                 } else {
                     $percentCompletedColor = 'bg-danger'; // fallback
                 }
@@ -4511,6 +4522,7 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                       </div>
                 ';
                 
+             
                 // $percentCompletedDisplay = $percentCompleted;
 
                 // $totalreturnedvalueDisplay = 
@@ -4538,6 +4550,7 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                          "totalpendingvalue" => $totalpendingvalueDisplay,
                          "totalapprovedvalue" => $totalapprovedvalueDisplay,
                          "totalsavedvalue" => $totalsavedvalueDisplay,
+                         "statusbadge" => $statusbadgeDisplay,
 
                          "completed" => $completed,
                          "percent_completed" => $percentCompletedDisplay
@@ -4743,7 +4756,7 @@ public function datatable_for_approval_projection_final_customer_isbn_list(Reque
             $isbn = $risbnprojd->EAN11;
 
             $title = $risbnprojd->DESCRIPTION;
-            $qty = $risbnprojd->QTY;
+            $qty = $risbnprojd->QTYAPPROVED1;
             $disc = $risbnprojd->DISC;
             $isbnunitprice = $risbnprojd->UNITP;
             $population = $risbnprojd->POPULATION;
@@ -4751,6 +4764,7 @@ public function datatable_for_approval_projection_final_customer_isbn_list(Reque
             $linetotal = $risbnprojd->LINETOTAL;
             $customercode = $risbnprojd->CUSTOMER;
             $remarks = $risbnprojd->REMARKS;
+            $aepernr = $risbnprojd->PERNR;
                 
             $remarksDisplay = '';
             $borderDisplay = '';
@@ -4798,10 +4812,10 @@ public function datatable_for_approval_projection_final_customer_isbn_list(Reque
             
                     <td>
                         <div class="rounded '.$borderDisplay.'" '.$remarksDisplay.'>
-                            <input class="form-control text-center p-1 for_approval_projection_final_edit_projtn_qty '.$customercode.'projtn un-cl" type="number" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="'.$qty.'" min="1">
+                            <input class="form-control text-center p-1 for_approval_projection_final_edit_projtn_qty '.$customercode.'projtn un-cl" type="number" data-aepernr="'.$aepernr.'" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="'.$qty.'" min="1">
                         </div>
                     </td>
-                    <td><input class="form-control text-center p-1  for_approval_projection_final_edit_approve_qty '.$uncl.' '.$docnum.''.$isbn.'editapproveqty" '.$readonly.' type="number" data-docnum="'.$docnum.'"  data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" data-aeprojtn="'.$projection.'" min="1"></td>
+                    <td><input class="form-control text-center p-1  for_approval_projection_final_edit_approve_qty '.$uncl.' '.$docnum.''.$isbn.'editapproveqty" '.$readonly.' type="number" data-aepernr="'.$aepernr.'" data-docnum="'.$docnum.'"  data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" data-aeprojtn="'.$projection.'" min="1"></td>
                    
                   <td><span class="totalbudget_display '.$customercode.''.$isbn.'totalbudget">0</span></td>
                     <td><span class="totalprev_display '.$customercode.''.$isbn.'totalprev1">0</span></td>
@@ -4959,7 +4973,7 @@ public function datatable_for_approval_projection_customer_list(Request $request
                         $isbn_unitp = $rpd->UNITP;
                         $disc = $rpd->DISC;
                         $population = $rpd->POPULATION;
-                        $qty = $rpd->PROJECTION;
+                        $qty = $rpd->QTY;
                         $linetotal = $rpd->LINETOTAL;
                         $docnumISBSubmittedForApproval[] = $docnum;
                         
@@ -5671,6 +5685,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                 $status = $risbnprojd->STATUS;
                                 $bsastatus = $risbnprojd->BSA;
                                 $remarks = $risbnprojd->REMARKS;
+                                $aepernr = $risbnprojd->PERNR;
                 
                                 $remarksDisplay = '';
                                 $borderDisplay = '';
@@ -5722,7 +5737,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                              <input class="form-control text-center p-1 for_approval_projection_edit_projtn_qty '.$docnum.'projtn un-cl" title="hey" type="number" data-customercode="'.$docnum.'" data-isbn="'.$isbn.'" value="'.$projection.'" min="1">
                                             </div>
                                         </td>
-                                        <td><input class="form-control text-center p-1 for_approval_projection_edit_projtn_rsm_qty '.$uncl.' '.$docnum. $isbn . 'editrsmqty '.$status.'"  '.$readonly.'  type="number" data-docnum="'.$docnum.'" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="0" data-aeprojtn="'.$projection.'" min="1"></td>
+                                        <td><input class="form-control text-center p-1 for_approval_projection_edit_projtn_rsm_qty '.$uncl.' '.$docnum. $isbn . 'editrsmqty '.$status.'"  '.$readonly.'  type="number" data-aepernr="'.$aepernr.'" data-docnum="'.$docnum.'" data-customercode="'.$customercode.'" data-isbn="'.$isbn.'" value="0" data-aeprojtn="'.$projection.'" min="1"></td>
                                     
                                     <td><span class="totalbudget_display '.$customercode.''.$isbn.'totalbudget">0</span></td>
                                         <td><span class="totalprev_display '.$customercode.''.$isbn.'totalprev1">0</span></td>
@@ -6556,7 +6571,8 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
       ->select(
                 't1.*',
                 DB::raw("CASE WHEN t1.STATUS = 'returned_isbn' THEN '1' ELSE '0' END  as HASRETURN"),
-                'CUSTOMER')
+                'CUSTOMER',
+                'CUSTOMERNAME')
       ->whereNull('t1.SUBMIT')
       ->where('t1.USERNAME',  $user_staff)
       ->where('t1.BASEDOCNUM',$basedocnum)
@@ -6564,40 +6580,104 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
 
         if(!$queryprojectiond->isEmpty()) {
 
-            foreach ($queryprojectiond as $rpd) {
-                    $customercode =  $rpd->CUSTOMER;
+            $customersavedDisplay = '        
+                            <a class="border-300">
+                                    <div class="px-1 px-sm-2 py-2  border-300 notification-card position-relative unread border-bottom">
+                                    <div class="d-flex align-items-center text-center justify-content-center position-relative">
+                                        <div class="d-flex text-center">
+                                            
+                                            <div class="flex-1 me-sm-3">
+                                                <h4 class="fs--1 text-black">You have no saved.</h4>
+                                                
+                                                
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </div>
+                                </a>';
 
-                    $customerInprojectiond[] = $customercode;
-
-                    $branchwhouse = $rpd->BRANCHWHOUSE;
-                    $isbn = $rpd->EAN11;
-                    $isbn_title = $rpd->DESCRIPTION;
-                    $isbn_unitp = $rpd->UNITP;
-                    $disc = $rpd->DISC;
-                    $population = $rpd->POPULATION;
-                    $qty = $rpd->QTY;
-                    $linetotal = $rpd->LINETOTAL;
-                    $isbnremarks = $rpd->REMARKS;
-                    $hasreturn = $rpd->HASRETURN;
-                    $isbnstatus = $rpd->STATUS;
-        
-                    $response['projectiond'][] = array(
-                        "customercode" => $customercode,
-                        "branchwhouse" => $branchwhouse,
-                        "isbn" => $isbn,
-                        "isbn_title" => $isbn_title,
-                        "isbn_unitp" => $isbn_unitp,
-                        "disc" => $disc,
-                        "population" => $population,
-                        "qty" => $qty,
-                        "linetotal" => $linetotal,
-                        "isbnremarks" => $isbnremarks,
-                        "hasreturn" => $hasreturn,
-                        "projtnisbnstatus" => $isbnstatus,
-                );
-
-            }
-        
+                                $displayedCustomers = array();
+                                $customerSavedCounts = array();
+                                
+                                // First loop: bilangin muna ilang titles per customer
+                                foreach ($queryprojectiond as $row) {
+                                    $code = $row->CUSTOMER;
+                                
+                                    if (!isset($customerSavedCounts[$code])) {
+                                        $customerSavedCounts[$code] = 0;
+                                    }
+                                
+                                    $customerSavedCounts[$code]++;
+                                }
+                                
+                                // Second loop: actual display and response
+                                foreach ($queryprojectiond as $rpd) {
+                                    $customercode = $rpd->CUSTOMER;
+                                    $customername = $rpd->CUSTOMERNAME;
+                                
+                                    $customerInprojectiond[] = $customercode;
+                                
+                                    $branchwhouse = $rpd->BRANCHWHOUSE;
+                                    $isbn = $rpd->EAN11;
+                                    $isbn_title = $rpd->DESCRIPTION;
+                                    $isbn_unitp = $rpd->UNITP;
+                                    $disc = $rpd->DISC;
+                                    $population = $rpd->POPULATION;
+                                    $qty = $rpd->QTY;
+                                    $linetotal = $rpd->LINETOTAL;
+                                    $isbnremarks = $rpd->REMARKS;
+                                    $hasreturn = $rpd->HASRETURN;
+                                    $isbnstatus = $rpd->STATUS;
+                                
+                                    $customersavedDisplay = '';
+                                    $countTitles = isset($customerSavedCounts[$customercode]) ? $customerSavedCounts[$customercode] : 0;
+                                
+                                    if ($isbnstatus == 'saved' && !isset($displayedCustomers[$customercode])) {
+                                        $customersavedDisplay = '
+                                            <a class="border-300 create_projection_isbn_list_display" 
+                                                data-customercode="'.$customercode.'" 
+                                                data-customername="'.$customername.'">
+                                                <div class="px-1 px-sm-2 py-2 border-300 notification-card position-relative unread border-bottom">
+                                                    <div class="d-flex align-items-center justify-content-between position-relative">
+                                                        <div class="d-flex">
+                                                            <div class="avatar avatar-m status-online me-3">
+                                                                <img class="rounded-circle" src="../../assets/img/team/40x40/avatar.webp" alt="" />
+                                                            </div>
+                                                            <div class="flex-1 me-sm-3">
+                                                                <h4 class="fs--1 text-black">'.$customername.'</h4>
+                                                                <p class="fs--1 text-1000 mb-0 fw-normal">
+                                                                    <span class="me-0 fs--2"></span>
+                                                                    '.$customercode.'
+                                                                    <span class="ms-2 text-400 fw-bold fs--2"></span></p>
+                                                                    <p class="text-800 fs--1 mb-0"><span class="me-0 fas fa-book-open"></span><span class="fw-bold"> You have <b> '.$countTitles.' </b> saved title(s). </span></p>
+                                                    
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        ';
+                                
+                                        $displayedCustomers[$customercode] = true;
+                                    }
+                                
+                                    $response['projectiond'][] = array(
+                                        "customercode" => $customercode,
+                                        "branchwhouse" => $branchwhouse,
+                                        "isbn" => $isbn,
+                                        "isbn_title" => $isbn_title,
+                                        "isbn_unitp" => $isbn_unitp,
+                                        "disc" => $disc,
+                                        "population" => $population,
+                                        "qty" => $qty,
+                                        "linetotal" => $linetotal,
+                                        "isbnremarks" => $isbnremarks,
+                                        "hasreturn" => $hasreturn,
+                                        "projtnisbnstatus" => $isbnstatus,
+                                        "customersaved" => $customersavedDisplay,
+                                    );
+                                }
 
       }
 
@@ -7246,7 +7326,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         $query = OPTv2Projectiond::where('BASEDOCNUM',$projdocnum)
                                 ->where('USERNAME',$staff)
                                 ->where('QTY', '!=', '0')
-                                ->whereNull('SUBMIT');
+                                ->whereNull('SUBMIT'); 
 
      
         if(!$query->exists()){
@@ -8264,7 +8344,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                                 // ->selectRaw('prd.CRMMOTHERLOOKUP.NAME as CUSTNAME, MAX(RTRIM(CUSTNO)) as CUSTNO, MAX(RTRIM(MOTHERACCT)) as MOTHERACCT, MAX(AE) as AE')
                                 // ->groupBy('prd.CRMMOTHERLOOKUP.NAME')
                                 ->where(function( $querya) use ($customer) {
-                                    $querya->where('CUSTNO',$customer)
+                                    $querya->where('CUSTNO','LIKE','%'.$customer.'%')
                                             ->orWhereRaw('CONTAINS(TAGS, ?)', ['"'.$customer.'"'])
                                             ;
                                             // ->orWhere('NAME', 'LIKE', '%"'.$customer.'"%');
@@ -9158,8 +9238,14 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
     // dd($id);
     $updateprojectiond = OPTv2Projectiond::where('id',$id)
                 ->update([
-                    "STATUS" => 'for_ssm_approval',
-                    
+                    // "STATUS" => 'for_ssm_approval',
+                    "STATUS" => 'approved',
+                    "APPROVED" => '1',
+                    "DATEAPPROVED" => $date_now,
+                    "APPROVED2" => '1',
+                    "APPROVEDBY2" => $pernr,
+                    "QTYAPPROVED2" => $approve_qty,
+                    "DATEAPPROVED2" => $date_now,
                     "APPROVED1" => '1',
                     "APPROVEDBY1" => $pernr,
                     "QTYAPPROVED1" => $rsm_qty,
@@ -9170,6 +9256,57 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 
         if($updateprojectiond) {
             $status = 2;
+
+            $updateprojectiond = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1') 
+                    ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM') 
+                    ->select('t1.*','BSA','CUSTOMER')
+                    ->where('t1.id',$id)
+                    ->first();
+
+            $pernr = trim($updateprojectiond->PERNR);
+
+            $quserdetails = userDetails($pernr);
+
+            $basedocnum = $updateprojectiond->BASEDOCNUM;
+
+
+            $qprojectiondetails = projection_period_details($basedocnum);
+            $school_year = $qprojectiondetails->YEAR;
+
+            $pernrrsm = $updateprojectiond->PERNR;
+            $pernrssmsm = $updateprojectiond->PERNR;
+            $isbn = $updateprojectiond->EAN11;
+            $matnr = $updateprojectiond->MATNR;
+            $customercode = $updateprojectiond->CUSTOMER;
+            $bsa = $updateprojectiond->BSA;
+            $population = $updateprojectiond->POPULATION;
+            $qty = $updateprojectiond->QTY;
+            $rsm = $quserdetails->RSM;
+            $ssm = $quserdetails->SSM;
+         
+  
+            $pernrleadzeros = ltrim(trim($pernr), '0');
+            $rsmleadzeros = ltrim(trim($rsm), '0');
+            $ssmleadzeros = ltrim(trim($ssm), '0');
+
+            $qtybsa = $bsa == '1' ? $qty : 0;
+            $qtynbsa = $bsa !== '1' ? $qty : 0;
+
+                $qcreatecrmprojection = CrmProjection::create([
+                        "idno" => $pernrleadzeros, 
+                        "school_id" => $customercode, 
+                        "isbn" => $isbn, 
+                        "matnr" => $matnr, 
+                        "school_year" => $school_year, 
+                        "population" => $population, 
+                        "projection_bsa" => $qtybsa, 
+                        "projection_con" => $qtynbsa, 
+                        "status" => '3', 
+                        "remarks" => 'Projection Approved', 
+                        "rsm" => $rsmleadzeros, 
+                        "ssm" => $ssmleadzeros, 
+                        "batchid" => $basedocnum, 
+                ]);
 
         }
         
@@ -9350,124 +9487,30 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
     return response()->json($response);
   }
-  
-  public function submit_approve_projection(Request $request) {
-
-    $staff = session('user_staff');
-    $pernr = session('pernr');
-    $username = $request->query('username');
-    $projdocnum = $request->query('projdocnum');
-    $date_now_full = date_now();
-    $date_now = date_now('dateonly');
+  public function submit_changeprojection_final_approve_qty(Request $request) {
 
 
-    $isbn_approve_input = $request->input('forapproval_projection_isbn_approve');
-    $docnum_input = $request->input('forapproval_projection_docnum');
-    $branchwhouse_input = $request->input('forapproval_projection_branchwhouse');
-    $customercode_input = $request->input('forapproval_projection_customercode');
-    $isbn_input = $request->input('forapproval_projection_isbn');
-    $rsm_qty_input = $request->input('forapproval_projection_isbn_rsm_qty');
-    $linetotal_input = $request->input('forapproval_projection_isbn_linetotal');
+    $docnum = $request->input('docnum');
+    $aepernr = $request->input('aepernr');
+    $isbn = $request->input('isbn');
+    $approve_qty = $request->input('qty');
+    $linetotal = $request->input('linetotal');
 
-    $status = 404;
     $html = '';
+    $status = 404;
     
-    // $isbnapproves = [];
-    $docnumapproves = [];
+    // dd($aepernr);
+    $updateapproveqty = OPTv2Projectiond::where('DOCNUM',$docnum)
+                        ->where('EAN11',$isbn)
+                        ->where('PERNR',$aepernr)
+                        ->update([
+                            "QTY" => $approve_qty,
+                            "LINETOTAL" => $linetotal,
+                        ]);
 
-    // dd($docnum_input);
-    $updatesuccess = false;
-    $notemptyapprove = false;
-    
-    if(!empty($docnum_input) && is_array($docnum_input)) {
-
-        foreach ($docnum_input as $i => $cc){
-
-            $docnumapproves[] = $docnum_input[$i] ?? null;
-
-            $docnum = $docnum_input[$i] ?? null;
-            $customercode = $customercode_input[$i] ?? null;
-            $linetotal = $linetotal_input[$i] ?? 0;
-            $rsm_qty = $rsm_qty_input[$i] ?? 0;
-            $isbn = $isbn_input[$i] ?? null;
-            $isbn_approve = $isbn_approve_input[$i] ?? null;
-
-            if($isbn_approve == '1') {
-
-                $notemptyapprove = true;
-
-                $updateprojectiond = OPTv2Projectiond::where('DOCNUM',$docnum)
-                                ->where('EAN11',$isbn)
-                                ->update([
-                                    "STATUS" => 'for_ssm_approval',
-                                    
-                                    "APPROVED1" => '1',
-                                    "APPROVEDBY1" => $pernr,
-                                    "QTYAPPROVED1" => $rsm_qty,
-                                    "DATEAPPROVED1" => $date_now,
-                                    "LINETOTAL" => $linetotal,
-                                    "QTY" => $rsm_qty,
-                                ]);
-
-                // $updateprojectionh = OPTv2Projectionh::where('DOCNUM',$docnum)
-                //                 ->update([
-                //                     "STATUS" => 'for_ssm_approval',
-                //                     "DONEAPPROVER1" => '1',
-                //                     "APPROVER1" => $pernr,
-                //                     "DATEAPPROVER1" => $date_now,
-                //                 ]);
-
-                if($updateprojectiond) {
-                $updatesuccess = true;
-
-                }
-
-            }
-
-       
- 
-        }
-
-
-        if(!$notemptyapprove) {
-            $status = 403;
-
-        }
-        else if ($updatesuccess) {
-            $status = 2;
-
-            // $updatedisapproveprojectiond = OPTv2Projectiond::where('BASEDOCNUM',$projdocnum)
-            //                                                 ->where('USERNAME',$username)
-            //                                                 ->whereNull('APPROVED1')
-            //                                                 ->update([
-            //                                                     "QTY" => '0',
-            //                                                     "LINETOTAL" => '0',
-            //                                                     
-            //                                                     "DISAPPROVED" => '1',
-            //                                                     "DATEDISAPPROVED" => $date_now,
-            //                                                 ]);
-
-            // $updatedisapproveprojectionh = OPTv2Projectionh::where('BASEDOCNUM',$projdocnum)
-            //                                                 ->where('USERNAME',$username)
-            //                                                 ->whereNull('APPROVER1')
-            //                                                     ->update([
-            //                                                         "DISAPPROVED" => '1',
-            //                                                         "DONEAPPROVER1" => '1',
-            //                                                     ]);
-
-            
-        } else {
-            $status = 404;
-
-        }
-
+    if($updateapproveqty) {
+        $status = 2;
     }
-
-    else {
-        $status = 410;
-    }
-
-
     $response = array(
         'status' => $status,
         'html' => $html
@@ -9475,9 +9518,413 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                             
     return response()->json($response);
 
+  }
+  
+  public function submit_changeprojection_approve_qty(Request $request) {
+
+
+    $docnum = $request->input('docnum');
+    $aepernr = $request->input('aepernr');
+    $isbn = $request->input('isbn');
+    $approve_qty = $request->input('qty');
+    $linetotal = $request->input('linetotal');
+
+    $html = '';
+    $status = 404;
+    
+    // dd($aepernr);
+    $updateapproveqty = OPTv2Projectiond::where('DOCNUM',$docnum)
+                        ->where('EAN11',$isbn)
+                        ->where('PERNR',$aepernr)
+                        ->update([
+                            "QTY" => $approve_qty,
+                            "LINETOTAL" => $linetotal,
+                        ]);
+
+    if($updateapproveqty) {
+        $status = 2;
+    }
+    $response = array(
+        'status' => $status,
+        'html' => $html
+    );
+                            
+    return response()->json($response);
+
+  }
+//   public function submit_approve_projection(Request $request) {
+
+//     $staff = session('user_staff');
+//     $pernr = session('pernr');
+//     $username = $request->query('username');
+//     $projdocnum = $request->query('projdocnum');
+//     $date_now_full = date_now();
+//     $date_now = date_now('dateonly');
+
+
+//     $isbn_approve_input = $request->input('forapproval_projection_isbn_approve');
+//     $docnum_input = $request->input('forapproval_projection_docnum');
+//     $branchwhouse_input = $request->input('forapproval_projection_branchwhouse');
+//     $customercode_input = $request->input('forapproval_projection_customercode');
+//     $isbn_input = $request->input('forapproval_projection_isbn');
+//     $rsm_qty_input = $request->input('forapproval_projection_isbn_rsm_qty');
+//     $linetotal_input = $request->input('forapproval_projection_isbn_linetotal');
+
+//     $status = 404;
+//     $html = '';
+    
+//     // $isbnapproves = [];
+//     $docnumapproves = [];
+
+//     // dd($docnum_input);
+//     $updatesuccess = false;
+//     $notemptyapprove = false;
+    
+//     if(!empty($docnum_input) && is_array($docnum_input)) {
+
+//         foreach ($docnum_input as $i => $cc){
+
+//             $docnumapproves[] = $docnum_input[$i] ?? null;
+
+//             $docnum = $docnum_input[$i] ?? null;
+//             $customercode = $customercode_input[$i] ?? null;
+//             $linetotal = $linetotal_input[$i] ?? 0;
+//             $rsm_qty = $rsm_qty_input[$i] ?? 0;
+//             $isbn = $isbn_input[$i] ?? null;
+//             $isbn_approve = $isbn_approve_input[$i] ?? null;
+
+//             if($isbn_approve == '1') {
+
+//                 $notemptyapprove = true;
+
+//                 $updateprojectiond = OPTv2Projectiond::where('DOCNUM',$docnum)
+//                                 ->where('EAN11',$isbn)
+//                                 ->update([
+//                                     "STATUS" => 'for_ssm_approval',
+                                    
+//                                     "APPROVED1" => '1',
+//                                     "APPROVEDBY1" => $pernr,
+//                                     "QTYAPPROVED1" => $rsm_qty,
+//                                     "DATEAPPROVED1" => $date_now,
+//                                     "LINETOTAL" => $linetotal,
+//                                     "QTY" => $rsm_qty,
+//                                 ]);
+
+//                 // $updateprojectionh = OPTv2Projectionh::where('DOCNUM',$docnum)
+//                 //                 ->update([
+//                 //                     "STATUS" => 'for_ssm_approval',
+//                 //                     "DONEAPPROVER1" => '1',
+//                 //                     "APPROVER1" => $pernr,
+//                 //                     "DATEAPPROVER1" => $date_now,
+//                 //                 ]);
+
+//                 if($updateprojectiond) {
+//                 $updatesuccess = true;
+
+//                 }
+
+//             }
+
+       
+ 
+//         }
+
+
+//         if(!$notemptyapprove) {
+//             $status = 403;
+
+//         }
+//         else if ($updatesuccess) {
+//             $status = 2;
+
+//             // $updatedisapproveprojectiond = OPTv2Projectiond::where('BASEDOCNUM',$projdocnum)
+//             //                                                 ->where('USERNAME',$username)
+//             //                                                 ->whereNull('APPROVED1')
+//             //                                                 ->update([
+//             //                                                     "QTY" => '0',
+//             //                                                     "LINETOTAL" => '0',
+//             //                                                     
+//             //                                                     "DISAPPROVED" => '1',
+//             //                                                     "DATEDISAPPROVED" => $date_now,
+//             //                                                 ]);
+
+//             // $updatedisapproveprojectionh = OPTv2Projectionh::where('BASEDOCNUM',$projdocnum)
+//             //                                                 ->where('USERNAME',$username)
+//             //                                                 ->whereNull('APPROVER1')
+//             //                                                     ->update([
+//             //                                                         "DISAPPROVED" => '1',
+//             //                                                         "DONEAPPROVER1" => '1',
+//             //                                                     ]);
+
+            
+//         } else {
+//             $status = 404;
+
+//         }
+
+//     }
+
+//     else {
+//         $status = 410;
+//     }
+
+
+//     $response = array(
+//         'status' => $status,
+//         'html' => $html
+//     );
+                            
+//     return response()->json($response);
+
 
     
+// }
+
+public function submit_approve_projection_final(Request $request)
+{
+    $staff = session('user_staff');
+    $approverPernr = session('pernr');
+    $username = $request->query('username');
+    $date_now = date_now('dateonly');
+
+    $docnum_input = $request->input('forapproval_projection_final_docnum');
+
+    $status = 404;
+    $html = '';
+
+    if (!empty($docnum_input)) {
+
+        $projectionRows = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+            ->whereIn('DOCNUM', (array)$docnum_input)
+            ->where('USERNAME', $username)
+            ->selectRaw('   
+                    t1.*,
+                    (SELECT TOP 1 CUSTOMER FROM OPTV2PROJECTIONH t2 WHERE t1.DOCNUM = t2.DOCNUM ) as CUSTOMER'
+            )
+            ->whereNotNull('APPROVED1')
+            ->whereNull('APPROVED2')
+            ->get();
+
+        if ($projectionRows->isEmpty()) {
+            $status = 403;
+        }
+
+        try {
+
+            DB::transaction(function () use ($projectionRows, $approverPernr, $date_now) {
+
+                foreach ($projectionRows as $row) {
+
+                    $row->update([
+                        "STATUS" => 'approved',
+                        "APPROVED" => '1',
+                        "DATEAPPROVED" => $date_now,
+                        "APPROVED2" => '1',
+                        "APPROVEDBY2" => $approverPernr,
+                        "QTYAPPROVED2" => $row->QTY,
+                        "DATEAPPROVED2" => $date_now,
+                    ]);
+
+                    $pernr = trim($row->PERNR);
+                    $basedocnum = $row->BASEDOCNUM;
+
+                    $quserdetails = userDetails($pernr);
+                    $qprojectiondetails = projection_period_details($basedocnum);
+
+                    $school_year = $qprojectiondetails->YEAR ?? null;
+
+                    $isbn = $row->EAN11;
+                    $matnr = $row->MATNR;
+                    $customercode = $row->CUSTOMER;
+                    $bsa = $row->BSA;
+                    $population = $row->POPULATION;
+                    $qty = $row->QTY;
+
+                    $rsm = $quserdetails->RSM ?? null;
+                    $ssm = $quserdetails->SSM ?? null;
+
+                    $pernrleadzeros = ltrim(trim($pernr), '0');
+                    $rsmleadzeros = ltrim(trim($rsm), '0');
+                    $ssmleadzeros = ltrim(trim($ssm), '0');
+
+                    $qtybsa = $bsa == '1' ? $qty : 0;
+                    $qtynbsa = $bsa != '1' ? $qty : 0;
+
+                    CrmProjection::create([
+                        "idno" => $pernrleadzeros,
+                        "school_id" => $customercode,
+                        "isbn" => $isbn,
+                        "matnr" => $matnr,
+                        "school_year" => $school_year,
+                        "population" => $population,
+                        "projection_bsa" => $qtybsa,
+                        "projection_con" => $qtynbsa,
+                        "status" => '3',
+                        "remarks" => 'Projection Approved',
+                        "rsm" => $rsmleadzeros,
+                        "ssm" => $ssmleadzeros,
+                        "batchid" => $basedocnum,
+                    ]);
+                }
+
+            });
+
+            $status = 2;
+
+        } catch (\Exception $e) {
+
+            $status = 500;
+            $html = $e->getMessage();
+
+        }
+
+    } else {
+
+        $status = 410;
+
+    }
+
+    return response()->json([
+        'status' => $status,
+        'html' => $html
+    ]);
 }
+
+public function submit_approve_projection(Request $request)
+{
+    $staff = session('user_staff');
+    $approverPernr = session('pernr');
+    $username = $request->query('username');
+    $projdocnum = $request->query('projdocnum');
+    $date_now_full = date_now();
+    $date_now = date_now('dateonly');
+
+    $docnum_input = $request->input('forapproval_projection_docnum');
+
+    $status = 404;
+    $html = '';
+
+    if (!empty($docnum_input)) {
+
+        $updateprojectiond = OPTv2Projectiond::whereIn('DOCNUM', (array)$docnum_input)
+            ->where('USERNAME', $username)
+            ->whereNotNull('SUBMIT')
+            ->whereNull('APPROVED1')
+            ->update([
+                "STATUS" => 'for_ssm_approval',
+                "APPROVED1" => '1',
+                "APPROVEDBY1" => $approverPernr,
+                "QTYAPPROVED1" => DB::raw('QTY'),
+                "DATEAPPROVED1" => $date_now,
+            ]);
+
+        if ($updateprojectiond) {
+            $status = 2;
+
+            $div = session('division');
+
+            if (strpos(trim($div), 'BED') !== false) {
+
+                $projectionRows = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+                    ->whereIn('t1.DOCNUM', (array)$docnum_input)
+                    ->where('t1.USERNAME', $username)
+                    ->whereNotNull('t1.APPROVED1')
+                    ->whereNull('t1.APPROVED2')
+                    ->selectRaw('
+                        t1.*,
+                        (SELECT TOP 1 CUSTOMER 
+                         FROM OPTV2PROJECTIONH t2 
+                         WHERE t1.DOCNUM = t2.DOCNUM) as CUSTOMER
+                    ')
+                    ->get();
+
+                if ($projectionRows->isEmpty()) {
+                    $status = 403;
+                } else {
+                    try {
+
+                        DB::transaction(function () use ($projectionRows, $approverPernr, $date_now) {
+
+                            foreach ($projectionRows as $row) {
+
+                                $row->update([
+                                    "STATUS" => 'approved',
+                                    "APPROVED" => '1',
+                                    "DATEAPPROVED" => $date_now,
+                                    "APPROVED2" => '1',
+                                    "APPROVEDBY2" => $approverPernr,
+                                    "QTYAPPROVED2" => $row->QTY,
+                                    "DATEAPPROVED2" => $date_now,
+                                ]);
+
+                                $pernr = trim($row->PERNR);
+                                $basedocnum = $row->BASEDOCNUM;
+
+                                $quserdetails = userDetails($pernr);
+                                $qprojectiondetails = projection_period_details($basedocnum);
+
+                                $school_year = $qprojectiondetails->YEAR ?? null;
+
+                                $isbn = $row->EAN11;
+                                $matnr = $row->MATNR;
+                                $customercode = $row->CUSTOMER;
+                                $bsa = $row->BSA;
+                                $population = $row->POPULATION;
+                                $qty = $row->QTY;
+
+                                $rsm = $quserdetails->RSM ?? null;
+                                $ssm = $quserdetails->SSM ?? null;
+
+                                $pernrleadzeros = ltrim(trim($pernr), '0');
+                                $rsmleadzeros = ltrim(trim((string)$rsm), '0');
+                                $ssmleadzeros = ltrim(trim((string)$ssm), '0');
+
+                                $qtybsa = $bsa == '1' ? $qty : 0;
+                                $qtynbsa = $bsa != '1' ? $qty : 0;
+
+                                CrmProjection::create([
+                                    "idno" => $pernrleadzeros,
+                                    "school_id" => $customercode,
+                                    "isbn" => $isbn,
+                                    "matnr" => $matnr,
+                                    "school_year" => $school_year,
+                                    "population" => $population,
+                                    "projection_bsa" => $qtybsa,
+                                    "projection_con" => $qtynbsa,
+                                    "status" => '3',
+                                    "remarks" => 'Projection Approved',
+                                    "rsm" => $rsmleadzeros,
+                                    "ssm" => $ssmleadzeros,
+                                    "batchid" => $basedocnum,
+                                ]);
+                            }
+                        });
+
+                        $status = 2;
+
+                    } catch (\Exception $e) {
+                        $status = 500;
+                        $html = $e->getMessage();
+                    }
+                }
+            }
+
+        } else {
+            $status = 404;
+        }
+
+    } else {
+        $status = 410;
+    }
+
+    $response = array(
+        'status' => $status,
+        'html' => $html
+    );
+
+    return response()->json($response);
+}
+
 
 public function approve_projection_final_isbn(Request $request) {
 
@@ -9595,173 +10042,173 @@ public function approve_projection_final_isbn(Request $request) {
 }
 
 
-  public function submit_approve_projection_final(Request $request) {
+//   public function submit_approve_projection_final(Request $request) {
 
-    $staff = session('user_staff');
-    $pernr = session('pernr');
-    $username = $request->query('username');
-    $basedocnum = $request->query('projdocnum');
-    $date_now_full = date_now();
-    $date_now = date_now('dateonly');
+//     $staff = session('user_staff');
+//     $pernr = session('pernr');
+//     $username = $request->query('username');
+//     $basedocnum = $request->query('projdocnum');
+//     $date_now_full = date_now();
+//     $date_now = date_now('dateonly');
 
 
-    $docnum_input = $request->input('forapproval_projection_final_docnum');
-    $branchwhouse_input = $request->input('forapproval_projection_final_branchwhouse');
-    $isbn_final_approve_input = $request->input('forapproval_projection_final_isbn_approve');
-    $customercode_input = $request->input('forapproval_projection_final_customercode');
-    $isbn_input = $request->input('forapproval_projection_final_isbn');
-    $approve_qty_input = $request->input('forapproval_projection_final_isbn_ssm_qty');
-    $linetotal_input = $request->input('forapproval_projection_final_isbn_linetotal');
+//     $docnum_input = $request->input('forapproval_projection_final_docnum');
+//     $branchwhouse_input = $request->input('forapproval_projection_final_branchwhouse');
+//     $isbn_final_approve_input = $request->input('forapproval_projection_final_isbn_approve');
+//     $customercode_input = $request->input('forapproval_projection_final_customercode');
+//     $isbn_input = $request->input('forapproval_projection_final_isbn');
+//     $approve_qty_input = $request->input('forapproval_projection_final_isbn_ssm_qty');
+//     $linetotal_input = $request->input('forapproval_projection_final_isbn_linetotal');
 
-    $status = 404;
-    $html = '';
+//     $status = 404;
+//     $html = '';
     
     
-    $qprojectiondetails = projection_period_details($basedocnum);
-    $school_year = $qprojectiondetails->YEAR;
+//     $qprojectiondetails = projection_period_details($basedocnum);
+//     $school_year = $qprojectiondetails->YEAR;
 
-    $isbnapproves = [];
-    $docnumapproves = [];
-    $notemptyapprove = false;
+//     $isbnapproves = [];
+//     $docnumapproves = [];
+//     $notemptyapprove = false;
 
-    // dd($docnum_input);
-    $updatesuccess = false;
+//     // dd($docnum_input);
+//     $updatesuccess = false;
 
     
-    if(!empty($docnum_input) && is_array($docnum_input)) {
+//     if(!empty($docnum_input) && is_array($docnum_input)) {
 
-        foreach ($docnum_input as $i => $cc){
+//         foreach ($docnum_input as $i => $cc){
 
-            $docnumapproves[] = $docnum_input[$i] ?? null;
-            $isbnapproves[] = $isbn_input[$i] ?? null;
+//             $docnumapproves[] = $docnum_input[$i] ?? null;
+//             $isbnapproves[] = $isbn_input[$i] ?? null;
 
-            $isbn_final_approve = $isbn_final_approve_input[$i];
+//             $isbn_final_approve = $isbn_final_approve_input[$i];
 
-            if($isbn_final_approve == '1') {
+//             if($isbn_final_approve == '1') {
                 
-                    $docnum = $docnum_input[$i] ?? null;
-                    $customercode = $customercode_input[$i] ?? null;
-                    $linetotal = $linetotal_input[$i] ?? null;
-                    $approve_qty = $approve_qty_input[$i] ?? null;
-                    $isbn = $isbn_input[$i] ?? null;
+//                     $docnum = $docnum_input[$i] ?? null;
+//                     $customercode = $customercode_input[$i] ?? null;
+//                     $linetotal = $linetotal_input[$i] ?? null;
+//                     $approve_qty = $approve_qty_input[$i] ?? null;
+//                     $isbn = $isbn_input[$i] ?? null;
         
         
-                    $notemptyapprove = true;
+//                     $notemptyapprove = true;
 
-                    $updateprojectiond = OPTv2Projectiond::where('DOCNUM',$docnum)
-                                                        ->where('EAN11',$isbn)
-                                                        ->update([
-                                                            "STATUS" => 'approved',
-                                                            "APPROVED" => '1',
-                                                            "DATEAPPROVED" => $date_now,
-                                                            "APPROVED2" => '1',
-                                                            "APPROVEDBY2" => $pernr,
-                                                            "QTYAPPROVED2" => $approve_qty,
-                                                            "DATEAPPROVED2" => $date_now,
+//                     $updateprojectiond = OPTv2Projectiond::where('DOCNUM',$docnum)
+//                                                         ->where('EAN11',$isbn)
+//                                                         ->update([
+//                                                             "STATUS" => 'approved',
+//                                                             "APPROVED" => '1',
+//                                                             "DATEAPPROVED" => $date_now,
+//                                                             "APPROVED2" => '1',
+//                                                             "APPROVEDBY2" => $pernr,
+//                                                             "QTYAPPROVED2" => $approve_qty,
+//                                                             "DATEAPPROVED2" => $date_now,
 
 
-                                                            "LINETOTAL" => $linetotal,
-                                                            "QTY" => $approve_qty,
-                                                        ]);
+//                                                             "LINETOTAL" => $linetotal,
+//                                                             "QTY" => $approve_qty,
+//                                                         ]);
         
         
-                    if($updateprojectiond) {
-                            $updatesuccess = true;
+//                     if($updateprojectiond) {
+//                             $updatesuccess = true;
 
                                    
                                              
-                            $qprojectiond = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1') 
-                                                        ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM') 
-                                                        ->select('t1.*','BSA','CUSTOMER')
-                                                        ->where('t1.DOCNUM',$docnum)
-                                                        ->where('EAN11',$isbn)
-                                                        ->first();
+//                             $qprojectiond = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1') 
+//                                                         ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM') 
+//                                                         ->select('t1.*','BSA','CUSTOMER')
+//                                                         ->where('t1.DOCNUM',$docnum)
+//                                                         ->where('EAN11',$isbn)
+//                                                         ->first();
                         
-                            $pernr = trim($qprojectiond->PERNR);
-                            $bsa = $qprojectiond->BSA;
-                            $matnr = $qprojectiond->MATNR;
-                            $population = $qprojectiond->POPULATION;
+//                             $pernr = trim($qprojectiond->PERNR);
+//                             $bsa = $qprojectiond->BSA;
+//                             $matnr = $qprojectiond->MATNR;
+//                             $population = $qprojectiond->POPULATION;
 
-                            $quserdetails = userDetails($pernr);
+//                             $quserdetails = userDetails($pernr);
                         
-                            $rsm = $quserdetails->RSM;
-                            $ssm = $quserdetails->SSM;
+//                             $rsm = $quserdetails->RSM;
+//                             $ssm = $quserdetails->SSM;
    
-                            $pernrleadzeros = ltrim(trim($pernr), '0');
-                            $rsmleadzeros = ltrim(trim($rsm), '0');
-                            $ssmleadzeros = ltrim(trim($ssm), '0');
+//                             $pernrleadzeros = ltrim(trim($pernr), '0');
+//                             $rsmleadzeros = ltrim(trim($rsm), '0');
+//                             $ssmleadzeros = ltrim(trim($ssm), '0');
                 
-                            $qtybsa = $bsa == '1' ? $approve_qty : 0;
-                            $qtynbsa = $bsa !== '1' ? $approve_qty : 0;
+//                             $qtybsa = $bsa == '1' ? $approve_qty : 0;
+//                             $qtynbsa = $bsa !== '1' ? $approve_qty : 0;
                 
-                                $qcreatecrmprojection = CrmProjection::create([
-                                        "idno" => $pernrleadzeros, 
-                                        "school_id" => $customercode, 
-                                        "isbn" => $isbn, 
-                                        "matnr" => $matnr, 
-                                        "school_year" => $school_year, 
-                                        "population" => $population, 
-                                        "projection_bsa" => $qtybsa, 
-                                        "projection_con" => $qtynbsa, 
-                                        "status" => '3', 
-                                        "remarks" => 'Projection Approved', 
-                                        "rsm" => $rsmleadzeros, 
-                                        "ssm" => $ssmleadzeros, 
-                                        "batchid" => $basedocnum, 
-                                ]);
+//                                 $qcreatecrmprojection = CrmProjection::create([
+//                                         "idno" => $pernrleadzeros, 
+//                                         "school_id" => $customercode, 
+//                                         "isbn" => $isbn, 
+//                                         "matnr" => $matnr, 
+//                                         "school_year" => $school_year, 
+//                                         "population" => $population, 
+//                                         "projection_bsa" => $qtybsa, 
+//                                         "projection_con" => $qtynbsa, 
+//                                         "status" => '3', 
+//                                         "remarks" => 'Projection Approved', 
+//                                         "rsm" => $rsmleadzeros, 
+//                                         "ssm" => $ssmleadzeros, 
+//                                         "batchid" => $basedocnum, 
+//                                 ]);
         
-                    }
+//                     }
 
-            }
+//             }
 
    
  
-        }
+//         }
 
 
-        if ($notemptyapprove) {
-            $status = 2;
+//         if ($notemptyapprove) {
+//             $status = 2;
 
-            // $updatedisapproveprojectiond = OPTv2Projectiond::where('BASEDOCNUM',$projdocnum)
-            //                                                 ->where('USERNAME',$username)
-            //                                                 ->whereNull('APPROVED2')
-            //                                                 ->update([
-            //                                                     "QTY" => '0',
-            //                                                     "LINETOTAL" => '0',
-            //                                                     "DISAPPROVED" => '1',
-            //                                                     "DATEDISAPPROVED" => $date_now,
-            //                                                 ]);
+//             // $updatedisapproveprojectiond = OPTv2Projectiond::where('BASEDOCNUM',$projdocnum)
+//             //                                                 ->where('USERNAME',$username)
+//             //                                                 ->whereNull('APPROVED2')
+//             //                                                 ->update([
+//             //                                                     "QTY" => '0',
+//             //                                                     "LINETOTAL" => '0',
+//             //                                                     "DISAPPROVED" => '1',
+//             //                                                     "DATEDISAPPROVED" => $date_now,
+//             //                                                 ]);
 
-            // $updatedisapproveprojectionh = OPTv2Projectionh::where('BASEDOCNUM',$projdocnum)
-            //                                                 ->where('USERNAME',$username)
-            //                                                 ->whereNull('APPROVER2')
-            //                                                     ->update([
-            //                                                         "DISAPPROVED" => '1',
-            //                                                         "DONEAPPROVER2" => '1',
-            //                                                     ]);
+//             // $updatedisapproveprojectionh = OPTv2Projectionh::where('BASEDOCNUM',$projdocnum)
+//             //                                                 ->where('USERNAME',$username)
+//             //                                                 ->whereNull('APPROVER2')
+//             //                                                     ->update([
+//             //                                                         "DISAPPROVED" => '1',
+//             //                                                         "DONEAPPROVER2" => '1',
+//             //                                                     ]);
 
             
-        } else {
-            $status = 404;
+//         } else {
+//             $status = 404;
 
-        }
+//         }
 
-    }
+//     }
 
-    else {
-        $status = 410;
-    }
+//     else {
+//         $status = 410;
+//     }
 
 
-    $response = array(
-        'status' => $status,
-        'html' => $html
-    );
+//     $response = array(
+//         'status' => $status,
+//         'html' => $html
+//     );
                             
-    return response()->json($response);
+//     return response()->json($response);
 
 
-}
+// }
 
 public function isbn_create_projection(Request $request) {
 
@@ -11602,7 +12049,8 @@ public function submit_convertalloc_new(Request $request) {
             $dept = $customerdetails->DEPARTMENT ?? '';
             $includeDept = ($dept !== '-' && $dept !== '') ? ' - ' . $dept : '';
             $nameincludeDept = $customerdetails->CUSTNAME . $includeDept;
-
+            $bsa = pernr_customer_check_bsa_status ($customercode);
+            
             $updatecustomercode = OPTv2Projectionh::where('CUSTOMERNAME',$customername)
                                     ->where('CUSTOMER','LIKE','%TEMP%')
                                     ->update([
@@ -11610,8 +12058,9 @@ public function submit_convertalloc_new(Request $request) {
                                         "CUSTOMER" => $customercode,
                                         "MOTHERACT" => $motheract,
                                         "DEPARTMENT" => $dept,
+                                        "BSA" => $bsa,
 
-                                    ]);
+                                    ]);  
             if($updatecustomercode){
                 $status = 2;
 

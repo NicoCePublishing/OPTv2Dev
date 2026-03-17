@@ -1345,60 +1345,86 @@ $(document).on('submit', '.submit_return_projection', function(e) {
         });
 });
 
+
 $(document).on('submit','.submit_approve_projection',function (e) {
 
-    e.preventDefault();
+        e.preventDefault();
 
-    var projdocnum = "{{request('pid')}}";
-    var username = "{{request('name')}}";
-    var formData = new FormData(this);
+        var projdocnum = "{{request('pid')}}";
+        var username = "{{request('name')}}";
 
+        var formData = new FormData();
 
-    $.ajax({
-        url: "/submit_approve_projection?projdocnum="+projdocnum+"&username="+username,
-        data: formData,
-        processData: false,
-        contentType: false,
-        type: 'POST',
-        beforeSend: function() {
-            showLoading();
-        },
-        success: function(data) {
-            console.log(data);
-            hideLoading();
+        // CSRF
+        formData.append('_token', $('input[name="_token"]').val());
 
-            if (data.status == "2") {
+        $('.for_approval_projection_isbn_approve').each(function(i){
 
-                sweetalert("Refreshing list...","Projection Approved!", icon = 'success', timer = '3000', btn = false);
-            
-                for_approval_projection_customer_list_table(projdocnum,projectionusername)
+            if($(this).val() == 1){
 
+                var row = $(this).closest('tr');
 
+                formData.append('forapproval_projection_isbn_approve[]',1);
+                formData.append('forapproval_projection_docnum[]',row.find('.for_approval_projection_isbn_docnum').val());
+                formData.append('forapproval_projection_customercode[]',row.find('.for_approval_projection_isbn_customercode').val());
+                formData.append('forapproval_projection_branchwhouse[]',row.find('.for_approval_projection_branchwhouse').val());
+                formData.append('forapproval_projection_isbn[]',row.find('.for_approval_projection_isbn').val());
+                formData.append('forapproval_projection_isbn_rsm_qty[]',row.find('.for_approval_projection_rsm_qty').val());
+                formData.append('forapproval_projection_isbn_linetotal[]',row.find('.for_approval_projection_isbn_linetotal').val());
 
             }
-            else if (data.status == "403") { 
-                sweetalert("Please select ISBN to approve","", icon = 'warning', timer = '3000', btn = false);
-            
+
+        });
+
+
+        $.ajax({
+            url: "/submit_approve_projection?projdocnum="+projdocnum+"&username="+username,
+            data: formData,
+            processData: false,
+            contentType: false,
+            type: 'POST',
+            beforeSend: function() {
+                showLoading();
+            },
+            success: function(data) {
+
+                console.log(data);
+                hideLoading();
+
+                if (data.status == "2") {
+
+                    sweetalert("Refreshing list...","Projection Approved!", icon = 'success', timer = '3000', btn = false);
+
+                    for_approval_projection_customer_list_table(projdocnum,projectionusername)
+
+                }
+                else if (data.status == "403") { 
+
+                    sweetalert("Please select ISBN to approve","", icon = 'warning', timer = '3000', btn = false);
+
+                }
+                else {
+
+                    swal("Oops...", "Please contact the administrator", "error");
+
+                }
+
+                ajaxInProgress = false;
+
+            },
+            error: function(data) {
+
+                swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                hideLoading();
+
+                ajaxInProgress = false;
+
             }
-            else {
-                swal("Oops...", "Please contact the administrator", "error");
-            }
 
-            ajaxInProgress = false;
-        },
-        error: function(data) {
-    
-            swal("Oops...", "Something went wrong. Please contact your administrator", "error");
-            hideLoading();
+        });
 
-            ajaxInProgress = false;
-        }
-        
-    });
+});
 
-
-    
-})
 
 $(document).on('click','.btn-approve',function (e) {
     
@@ -1431,10 +1457,65 @@ $(document).on('click','.btn-approve',function (e) {
     })
     .then((willCancel) => {
 
+        var projdocnum = "{{request('pid')}}";
+        var username = "{{request('name')}}";
+
         
         if (willCancel) {
             
-            $('.submit-approve-projection-btn').trigger('click');
+            var formData = new FormData();
+
+
+            $('.for_approval_projection_edit_customerisbn_approve_check:checked').each(function () {
+                formData.append('forapproval_projection_docnum[]', $(this).data('docnum'));
+          
+            });
+
+         
+
+            $.ajax({
+                url: "/submit_approve_projection?projdocnum="+projdocnum+"&username="+username,
+                data: formData,
+                processData: false,
+                contentType: false,
+                type: 'POST',
+                headers: {
+                        'X-CSRF-TOKEN': getCsrfToken() 
+                },
+                beforeSend: function() {
+                    showLoading();
+                },
+                success: function(data) {
+                    console.log(data);
+                    hideLoading();
+
+                    if (data.status == "2") {
+
+                        sweetalert("Refreshing list...","Projection Approved!", icon = 'success', timer = '3000', btn = false);
+                    
+                        for_approval_projection_customer_list_table(projdocnum,projectionusername)
+
+                    }
+                    else if (data.status == "403") { 
+                        sweetalert("Please select ISBN to approve","", icon = 'warning', timer = '3000', btn = false);
+                    
+                    }
+                    else {
+                        swal("Oops...", "Please contact the administrator", "error");
+                    }
+
+                    ajaxInProgress = false;
+                },
+                error: function(data) {
+
+                    swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                    hideLoading();
+
+                    ajaxInProgress = false;
+                }
+            });
+
+            // $('.submit-approve-projection-btn').trigger('click');
 
         } 
         else {
@@ -1537,6 +1618,7 @@ $(document).on('click','.remove-projtn-approval', function(e) {
         // var lastyearsale = $(this).data('lastyearsale');
         // var customercode = $(this).data('customercode');
         var docnum =   $(this).data('docnum')
+        var aepernr =   $(this).data('aepernr')
         var customercode =  $('.approvals_isbnlist_customercode_val').val();
         var isbn = trClosest.find('.for_approval_projection_edit_isbn').val();
         var title = trClosest.find('.for_approval_projection_edit_isbn_title').val();
@@ -1563,13 +1645,48 @@ $(document).on('click','.remove-projtn-approval', function(e) {
         $('.'+docnum+isbn+'rsmqty').val(v)
         $('.'+docnum+isbn+'linetotal').val(linetotal)
 
-        var html = "" 
-                    + "<span class='text-success fw-bold'>Approve Qty Updated!</span>"
-                    + "";
+        $.ajax({
+                url:"/submit_changeprojection_approve_qty", 
+                data: {
+                    docnum : docnum,
+                    aepernr : aepernr,
+                    isbn : isbn,
+                    qty : v,
+                    linetotal : linetotal,
+                },
+                type:'POST',
+                headers: {
+                        'X-CSRF-TOKEN': getCsrfToken() 
+                },
+                beforeSend: function() {
+                    showLoading()
+                },
+                success:function(data){
+                    console.log(data);
+                    hideLoading()
+                    if(data.status = '2'){
 
-        toastifyShow(html)  
+                        var html = "" 
+                                    + "<span class='text-success fw-bold'>Approve Qty Updated!</span>"
+                                    + "";
 
-        
+                        toastifyShow(html)  
+
+                    }
+                    else {
+
+                        swal("Oops...", "Something went wrong updating branch/whouse. Please contact your administrator", "error");
+                        
+                    }
+                    
+                    },
+                    error:function(data){
+                            hideLoading();
+                            
+                            swal("Oops...", "Something went wrong updating branch/whouse. Please contact your administrator", "error");
+                    }
+        });
+
         updateProjectionValues();
 
         // isbnappendISBNTableNotInEditTableandProjectiond(docnum);

@@ -1,6 +1,6 @@
 @extends('layouts.admin_app')
 
-@section('title') Users @endsection
+@section('title') Approvals Alloc. In Request @endsection
 
 @section('belowcontent')
 

@@ -431,10 +431,34 @@ $q = ProjectionPeriodList('0',trim(session('division')))->get();
                     <span class="badge ms-1 mt-2 bg-warning">
                         For RSM Approval (<span class="rsm-count">0</span>)
                     </span>
-                    
-                    <span class="badge ms-1 mt-2 bg-primary-500" title="Need to submit for approval.">
-                        Saved (<span class="saved-count">0</span>)
-                    </span>
+                    <li class="nav-item dropdown d-flex justify-content-end">
+                        <a class="nav-link badge ms-1 mt-2 bg-primary-500 text-light savedprojtn" title="Return"  href="#" style="min-width: 2.5rem" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-bs-auto-close="outside">
+                            {{-- <span class="badge-label fs--3 ">R</span> --}}
+                            Saved (<span class="saved-count">0</span>)
+                        </a>
+                        
+            
+                        <div class="dropdown-menu dropdown-menu-end notification-dropdown-menu py-0 shadow border border-300 navbar-dropdown-caret" id="navbarDropdownNotfication" aria-labelledby="navbarDropdownNotfication">
+                            <div class="card position-relative border-0">
+                              <div class="card-header p-2">
+                                <div class="d-flex justify-content-between">
+                                  <h5 class="text-black mb-0">Saved</h5>
+                                 
+                                </div>
+                              </div>
+                              <div class="card-body p-0">
+                                <div class="scrollbar-overlay" style="height: 15rem;">
+                                
+                                   <div class="savedreturn_display"></div>
+                                </div>
+                              </div>
+                              <div class="card-footer p-0 border-top border-0">
+                                <div class="my-2 text-center fw-bold fs--2 text-600"><a class="fw-bolder" href="#">&nbsp</a></div>
+                              </div>
+                            </div>
+                          </div>
+                     </li>
+              
 
                 </div>
             </div>
@@ -1212,7 +1236,7 @@ function createProjectionEditingIsbnRow(
                 </a>
             </td>
             <td class="text-center isbn-cell">${isbn}</td>
-            <td class="text-center" title="${title}">${JStruncateLimitWords(titleDisplay,27)}</td>
+            <td class="text-center" title="${title}"><span class="line-clamp-1">${title}</span></td>
             <td class="d-none">₱<span class="create_projection_linetotal_amount_display ${customercode}${isbn}linetotaltext">${linetotal}</span></td>
             <td class="d-none ">₱${isbnunitpriceDisplay}</td>
             <td><input class="form-control text-center ${noeditClass + ' ' +isbnstatus} alet create_projection_population_qty" type="number" value="${population}" min="1"></td>
@@ -1699,7 +1723,7 @@ function create_projection_customer_list_table(projdocnum) {
                     if (prjd && prjd.length > 0) {
 
                          var iprjl = '';
-
+                         var customersavedDisplay = '';
                             for(p=0;p<prjd.length;p++){
 
                                 var customercode = prjd[p].customercode;
@@ -1713,12 +1737,15 @@ function create_projection_customer_list_table(projdocnum) {
                                 var hasreturn =  prjd[p].hasreturn
                                 var projectionQty =  prjd[p].qty         
                                 var linetotal =  prjd[p].linetotal   
+                                var customersaved =  prjd[p].customersaved   
                                 var isbnremarks =  prjd[p].isbnremarks || '';
                                 var isbnstatus =  prjd[p].projtnisbnstatus || 'for_submit';
                                 var total1 =  0;   
                                 var total2 =  0;   
                                 var total3 =  0;   
        
+                                customersavedDisplay += prjd[p].customersaved;
+
                                 if(hasreturn === '1') {
                                     $('.create_projection_customer_hasreturn'+customercode ).html(
                                         `
@@ -1749,6 +1776,7 @@ function create_projection_customer_list_table(projdocnum) {
                             }       
                  
                         $('.currentprojectionupdate').append(iprjl);
+                        $('.savedreturn_display').html(customersavedDisplay);
 
                     }
 
@@ -1949,8 +1977,8 @@ function datatable_create_projection_customer_isbn_list(customercode,basedocnum)
                                                         type="text" value="${customercode}">
                                                 </td>
                                                 <td class="text-center isbn-cell">${isbn}</td>
-                                                <td class="text-center" title="${title}">${titleDisplay}</td>
-                                                <td class="d-none">₱<span class="create_projection_linetotal_amount_display ${customercode}${isbn}linetotaltext">0</span></td>
+                                                <td class="text-center" title="${title}">${title}</td>
+                                                <td class="d-none line-clamp-1">₱<span class="create_projection_linetotal_amount_display ${customercode}${isbn}linetotaltext">0</span></td>
                                                 <td class="d-none">₱${isbnunitpriceDisplay}</td>
                                                 <td>
                                                     <input class="form-control text-center ${noeditClass} create_projection_population_qty" 
@@ -2212,6 +2240,24 @@ var username = "{{session('user_staff')}}";
 // get_minidashboard_pernr(pernr,v,username)
 
     // $(document).on('change','.create_projection_branchwhouse_id',function (e) {
+
+    $(document).on('click','.create_projection_projtn_qty', function (e) {
+
+        var trClosest = $(this).closest('tr');
+
+        var populationqty = trClosest.find('.create_projection_population_qty');
+        var populationqtyInt = parseInt(populationqty.val());
+
+        if(populationqtyInt === 0) {
+            populationqty.focus().select();
+            var html = "" 
+                + "<span class='text-warning fw-bold'>Please declare population</span>"
+                + "";
+
+            toastifyShow(html)  
+        }
+
+    })
 
     $(document).on('click','.create_projection_search_title',function (e) {
 

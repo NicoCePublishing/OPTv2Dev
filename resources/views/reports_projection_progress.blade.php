@@ -63,11 +63,11 @@
                            <select class="form-control reportsprojprogress_pernr"  required name="reportsprojprogress_pernr" id="reportsprojprogress_pernr" aria-label="Default select example">
                            
                         
-                              @if($users->count() > 1 ) 
+                              {{-- @if($users->count() > 1 ) 
                             
                                  <option value="1" selected >All</option> 
                                  
-                               @endif    
+                               @endif     --}}
 
                            @foreach($users as $user)
                               <option value="{{$user->PERNR}}">{{$user->PERNR ." " . $user->FULLNAME}}</option>

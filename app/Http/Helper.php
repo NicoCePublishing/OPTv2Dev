@@ -21,6 +21,7 @@ use App\Models\CrmProjection;
 use App\Models\OPTv2ProjectionPeriod;
 use App\Models\OPTv2Projectionh;
 use App\Models\OPTv2Projectiond;
+use App\Models\OPTv2Projectionda;
 use App\Models\OPTv2Allocated;
 use App\Models\OPTv2Files;
 use App\Models\OPTv2CustomerLink;
@@ -169,6 +170,7 @@ if (!function_exists('yourFunction')) {
     function activeBranches() {
 
       $r = [
+            'MULTP' => 'Multiple Branches',
             'B029' => 'BACOLOD Selling',
             'B064' => 'BINAN Selling',
             'B049' => 'CDO Selling',
@@ -1762,6 +1764,7 @@ function capitalizeDecent($string) {
           
           $badges = [
               'saved' => ['primary-500', 'Saved'],
+              'pending' => ['warning', 'Pending'],
               'for_rsm_approval' => ['warning', 'For RSM Approval'],
               'for_imd_approval' => ['primary', 'For IMD Approval'],
               'for_ssm_approval' => ['info', 'For SSM Approval'],

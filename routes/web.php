@@ -306,6 +306,10 @@ Route::post('/submit_update_activestatus_user', [Mkacontrol::class,'submit_updat
 
 Route::post('/submit_admin_user_edit', [Mkacontrol::class,'submit_admin_user_edit'])->name('submit_admin_user_edit');
 
+Route::post('/submit_changeprojection_approve_qty', [Mkacontrol::class,'submit_changeprojection_approve_qty'])->name('submit_changeprojection_approve_qty');
+
+Route::post('/submit_changeprojection_final_approve_qty', [Mkacontrol::class,'submit_changeprojection_final_approve_qty'])->name('submit_changeprojection_final_approve_qty');
+
 //---
 
 
