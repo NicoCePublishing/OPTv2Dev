@@ -104,7 +104,7 @@
         </div>
 
         <div class="row">
-            <div class="col-12 col-md-12 col-xxl-6 text-left">
+            <div class="col-12 col-md-12 col-xxl-12 text-left">
                 
 
                 <div class="card border border-300 p-2" >                
@@ -181,7 +181,7 @@
                 </div>
 
         <div class="row">
-            <div class="col-12 col-md-12 col-xxl-6 border-end text-left">
+            <div class="col-12 col-md-12 col-xxl-12 border-end text-left">
                 
 
                 <div class="card" style="height:60vh; max-height:350vh;overflow-y:auto;overflow-x:hidden;">                

@@ -189,7 +189,7 @@
   </div>
 
 <div class="for_approval_projection_card row mb-2">
-        <div class="col-12 col-md-12 col-xxl-6 text-left">
+        <div class="col-12 col-md-12 col-xxl-12 text-left">
             
 
             <div class="card border-0 p-2" >  

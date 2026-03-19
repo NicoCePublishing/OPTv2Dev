@@ -119,7 +119,7 @@
 
 
 <div class="for_approval_convertalloc_card row mt-2 mb-2">
-        <div class="col-12 col-md-12 col-xxl-6 text-left">
+        <div class="col-12 col-md-12 col-xxl-12 text-left">
             
             <div class="card border-0 p-2" >  
                 {{-- <div class="" style="height:50vh; max-height:350vh;min-width:70vh;overflow-y:auto;overflow-x:hidden;">               --}}
