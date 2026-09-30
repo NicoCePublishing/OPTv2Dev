@@ -108,9 +108,16 @@ Route::get('/approvals_count', [Mkacontrol::class,'approvals_count'])->name('app
 
 Route::get('/submit_find_item', [Mkacontrol::class,'submit_find_item'])->name('submit_find_item');
 
+Route::get('/submit_find_item_inprojectiond', [Mkacontrol::class,'submit_find_item_inprojectiond'])->name('submit_find_item_inprojectiond');
+
+Route::get('/submit_find_item_inallocated', [Mkacontrol::class,'submit_find_item_inallocated'])->name('submit_find_item_inallocated');
+
 Route::get('/submit_find_publisher', [Mkacontrol::class,'submit_find_publisher'])->name('submit_find_publisher');
 
 Route::get('/get_projperiod_details', [Mkacontrol::class,'get_projperiod_details'])->name('get_projperiod_details');
+
+
+Route::get('/get_customer_projectiond', [Mkacontrol::class,'get_customer_projectiond'])->name('get_customer_projectiond');
 
 
 Route::get('/dashboard_graphs_data', [Mkacontrol::class,'dashboard_graphs_data'])->name('dashboard_graphs_data');
@@ -211,10 +218,16 @@ Route::get('/datatable_reports_alloctransferconvertsummary', [Mkacontrol::class,
 
 Route::get('/datatable_update_customer_temp_list', [Mkacontrol::class,'datatable_update_customer_temp_list']);
 
+Route::get('/datatable_changeisbn_projection_list', [Mkacontrol::class,'datatable_changeisbn_projection_list']);
+
+Route::get('/datatable_create_projection_saved_customer', [Mkacontrol::class,'datatable_create_projection_saved_customer']);
 //---
 
 
 //CRUD-----
+
+
+Route::post('/submit_change_isbn_projection', [Mkacontrol::class,'submit_change_isbn_projection'])->name('submit_change_isbn_projection');
 
 Route::post('/submit_add_new_projectionperiod', [Mkacontrol::class,'submit_add_new_projectionperiod'])->name('submit_add_new_projectionperiod');
 
@@ -290,13 +303,30 @@ Route::post('/submit_approve_convertalloc', [Mkacontrol::class,'submit_approve_c
 
 Route::post('/submit_disapproved_convertalloc', [Mkacontrol::class,'submit_disapproved_convertalloc'])->name('submit_disapproved_convertalloc');
 
-Route::post('/submit_disapproved_allocreq', [Mkacontrol::class,'submit_disapproved_allocreq'])->name('submit_disapproved_allocreq');
-
 Route::post('/submit_update_customer_temp', [Mkacontrol::class,'submit_update_customer_temp'])->name('submit_update_customer_temp');
 
 Route::post('/submit_update_enddate_projectionid', [Mkacontrol::class,'submit_update_enddate_projectionid'])->name('submit_update_enddate_projectionid');
 
 Route::get('/submit_admin_users_retrieve_user_details', [Mkacontrol::class,'submit_admin_users_retrieve_user_details'])->name('submit_admin_users_retrieve_user_details');
+
+Route::post('/submit_unlink_customer', [Mkacontrol::class,'submit_unlink_customer'])->name('submit_unlink_customer');
+
+Route::post('/submit_link_customer', [Mkacontrol::class,'submit_link_customer'])->name('submit_link_customer');
+
+Route::post('/submit_update_activestatus_user', [Mkacontrol::class,'submit_update_activestatus_user'])->name('submit_update_activestatus_user');
+
+Route::post('/submit_admin_user_edit', [Mkacontrol::class,'submit_admin_user_edit'])->name('submit_admin_user_edit');
+
+Route::post('/submit_changeprojection_approve_qty', [Mkacontrol::class,'submit_changeprojection_approve_qty'])->name('submit_changeprojection_approve_qty');
+
+Route::post('/submit_changeprojection_final_approve_qty', [Mkacontrol::class,'submit_changeprojection_final_approve_qty'])->name('submit_changeprojection_final_approve_qty');
+
+Route::post('/submit_refloat_approved_finalreq', [Mkacontrol::class,'submit_refloat_approved_finalreq'])->name('submit_refloat_approved_finalreq');
+
+Route::post('/submit_disapprove_allocreqout', [Mkacontrol::class,'submit_disapprove_allocreqout'])->name('submit_disapprove_allocreqout');
+
+Route::post('/submit_update_convertallocd_branchwhouse', [Mkacontrol::class,'submit_update_convertallocd_branchwhouse'])->name('submit_update_convertallocd_branchwhouse');
+
 //---
 
 
@@ -315,3 +345,23 @@ Route::get('/PrintWithProposalFinalReq', [Mkacontrol::class,'PrintWithProposalFi
 Route::get('/cronInsertNonSalesTeam', [Mkacontrol::class,'cronInsertNonSalesTeam'])->name('cronInsertNonSalesTeam');
 
 Route::get('/cronInsertSalesTeam', [Mkacontrol::class,'cronInsertSalesTeam'])->name('cronInsertSalesTeam');
+
+
+//added by emrick 08-18-2026
+Route::get('/test-email-ovp', [
+    Mkacontrol::class,
+    'testEmailOVP'
+]);
+
+Route::get(
+    '/get_allocreq_justification',
+    [Mkacontrol::class, 'get_allocreq_justification']
+);
+
+Route::post(
+    '/submit_allocreq_justification_message',
+    [
+        Mkacontrol::class,
+        'submit_allocreq_justification_message'
+    ]
+);

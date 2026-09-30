@@ -113,17 +113,19 @@
           </div>
        </div>
        <div class="card-body p-2 border-0 ">
-        <table id="convert-alloc-list-table" class="fs--1 table table-striped  text-center">
+        <table id="convert-alloc-list-table" class="fs--1 table table-striped  ">
             <thead class="border border-1">
              
                 <tr>
                     <th scope="col" class="text-center" width="5%">#</th>
-                    <th scope="col" class="text-center" width="15%">ISBN</th>
-                    <th scope="col" class="text-center" width="25%">Title</th>
-                    <th scope="col" class="text-center" width="15%">Convert </br> Type</th>
-                    <th scope="col" class="text-center" width="10%">Qty</th>
-                    <th scope="col" class="text-center" width="15%">Status</th>
-                    <th scope="col" class="text-center" width="10%">Date Submit</th>
+                    <th scope="col" class="text-center" width="12%">ISBN</th>
+                    <th scope="col" class="text-center" width="23%">Title</th>
+                    <th scope="col" class="text-center" width="12%">Convert </br> Type</th>
+                    <th scope="col" class="text-center" width="8%">Qty</th>
+                    <th scope="col" class="text-center" width="15%">Branch</th>
+                    <th scope="col" class="text-center" width="12%">Status</th>
+                    <th scope="col" class="text-center" width="8%">History</th>
+                    <th scope="col" class="text-center" width="8%">Date Submit</th>
                     <th scope="col" class="text-center" width="5%">Action</th>
                 </tr>
             </thead>
@@ -182,6 +184,22 @@
                                   </table>
 
                             </div>
+                            <div class="col-md-8 mt-3 convertalloc_justification_wrapper d-none">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        Justification
+                                    </span>
+
+                                    <textarea
+                                        class="form-control convertalloc_new_justification"
+                                        name="convertalloc_new_justification"
+                                        rows="3"
+                                        style="resize:none;"
+                                        placeholder="Enter justification..."
+                                    ></textarea>
+                                </div>
+                            </div>
+
                             <div class="mt-0 pt-0 text-end mt-3 border-top pt-2">
                                   <button type="submit" class="btn btn-sm btn-primary">Submit</button>
                             </div>
@@ -207,10 +225,77 @@
 
  
     
+<!-- //MODAL start here by emrick aug 18 2026 -->
+<div class="modal"
+     id="ConvertAllocMessageModal"
+     tabindex="-1">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content bg-100 p-3">
+
+            <div class="modal-header p-0 pb-2">
+
+                <h5 class="mb-0">
+                    Message History -
+                    <span class="convert_message_reference"></span>
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <input
+                    type="hidden"
+                    class="convert_message_reference_value">
+
+                <div
+                    class="convert_message_history"
+                    style="max-height:300px; overflow-y:auto;">
+                </div>
+
+                <div class="border-top mt-3 pt-3">
+
+                    <textarea
+                        class="form-control convert_message_text"
+                        rows="3"
+                        placeholder="POST MESSAGE..."
+                        style="resize:none;">
+                    </textarea>
+
+                    <div class="text-end mt-2">
+
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-primary btn_convert_post_message">
+                            POST MESSAGE
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- //MODAL end here by emrick aug 18 2026 -->
 
 @endsection
 
 @section('scriptJS')
+
+
 
 
 <script>
@@ -292,6 +377,7 @@ $.ajax({
 
 
 }
+
 
 $(document).ready(function(){
 
@@ -402,10 +488,22 @@ $(document).ready(function(){
         if(converttypeval === 'nonbsa'  )
         {
             $('.thbalancename').text('Non-BSA')
+
+            $('.convertalloc_justification_wrapper')
+            .addClass('d-none');
+
+            $('.convertalloc_new_justification')
+                .prop('required', false);
         }
         if(converttypeval === 'bsa'  )
         {
             $('.thbalancename').text('BSA')
+
+            $('.convertalloc_justification_wrapper')
+                .removeClass('d-none');
+
+            $('.convertalloc_new_justification')
+                .prop('required', true);
         }
 
                 var basedocnum = $('.selected_projection_id').val()
@@ -429,6 +527,7 @@ $(document).ready(function(){
         var converttypeval = $('.convertallocation_type').val()
         var basedocnum = $('.selected_projection_id').val()
 
+        DataTableReload('#convertalloc-balance-table');
      
         if($(`.convertalloc_new_qty[data-basedocnum="${basedocnum}"]`).length > 0 ) {
 
@@ -471,6 +570,33 @@ $(document).ready(function(){
 
     })
     $(document).on('submit','.submit_convertalloc_new',function (e) {
+        var convertType =
+            $('.convertallocation_type').val();
+
+        var justification =
+            $('.convertalloc_new_justification')
+                .val()
+                .trim();
+
+        if (
+            convertType === 'bsa' &&
+            justification === ''
+        ) {
+
+            blinkEmptyValue(
+                '.convertalloc_new_justification'
+            );
+
+            sweetalert(
+                "Justification Required",
+                "Please provide a justification for BSA to Non-BSA conversion.",
+                icon = 'warning',
+                timer = '3000',
+                btn = false
+            );
+
+            return false;
+        }
 
         e.preventDefault();
 
@@ -865,7 +991,9 @@ $(document).ready(function(){
             { "data": "description" },
             { "data": "converttypedisplay" },
             { "data": "qty" },
+            { "data": "branchwhouse" },
             { "data": "status" },
+            { "data": "history" },
             { "data": "datecreate" },
             { "data": "action" },
     ];
@@ -885,6 +1013,7 @@ $(document).ready(function(){
                 { "data": "description" },
                 { "data": "converttypedisplay" },
                 { "data": "qty" },
+                { "data": "branchwhouse" },
                 { "data": "status" },
                 { "data": "datecreate" },
                 { "data": "action" },
@@ -895,6 +1024,58 @@ $(document).ready(function(){
 
 
     });
+    
+    $(document).on('change','.update_convertallocd_branchwhouse',function (e) {
+        
+        var id = $(this).data('id')
+        var v = $(this).val();
+
+
+        $.ajax({
+                url:"/submit_update_convertallocd_branchwhouse", 
+                data: {
+                v : v,
+                id : id
+                },
+                type:'POST',
+                headers: {
+                        'X-CSRF-TOKEN': getCsrfToken() 
+                },
+                beforeSend: function() {
+                
+                    showLoading()
+                },
+                success:function(data){
+                    console.log(data);
+                    hideLoading();
+                    
+        
+                    
+                    if(data.status == '2') {
+
+                        
+                            var html = "" 
+                            + "<span class='text-success fw-bold'>Branch/Whouse Updated</span>"
+                            + "";
+
+                            toastifyShow(html)  
+                    }
+                    else   {
+
+                            swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                    }
+                    
+                },
+                    error:function(data){
+                            hideLoading();
+                        
+                            swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                }
+        });
+
+
+    })
+
     $(document).on('change','.addnewlinkaccount_from',function (e) {
 
       var pernr = $(this).val();
@@ -921,10 +1102,218 @@ $(document).ready(function(){
    });
 
 
+    $(document).on(
+        'click',
+        '.btn_convert_view_messages',
+        function(e) {
 
+            e.preventDefault();
 
+            var reference =
+                $(this).data('reference');
 
-   
+            $('.convert_message_reference')
+                .text(reference);
+
+            $('.convert_message_reference_value')
+                .val(reference);
+
+            $('.convert_message_text')
+                .val('');
+
+            loadConvertMessageHistory(reference);
+
+            $('#ConvertAllocMessageModal')
+                .modal('show');
+        }
+    );
+
+    function loadConvertMessageHistory(reference) {
+
+        var $history = $('.convert_message_history');
+
+        $history.html(
+            '<div class="text-center py-3 text-600">Loading...</div>'
+        );
+
+        $.ajax({
+            url: '/get_allocreq_justification'
+                + '?reference=' + encodeURIComponent(reference)
+                + '&reftype=CA',
+
+            type: 'GET',
+
+            success: function(data) {
+
+                console.log('CA HISTORY:', data);
+
+                $history.empty();
+
+                if (
+                    data.status != 2 ||
+                    !data.data ||
+                    data.data.length === 0
+                ) {
+
+                    $history.html(
+                        '<div class="text-center py-3 text-600">'
+                        + 'No messages yet.'
+                        + '</div>'
+                    );
+
+                    return;
+                }
+
+                $.each(data.data, function(index, item) {
+
+                    var username = item.USERNAME || '-';
+
+                    var $box = $('<div/>', {
+                        class: 'border-bottom pb-2 mb-3'
+                    });
+
+                    var $message = $('<div/>', {
+                        class: 'fw-semi-bold text-dark'
+                    }).text(
+                        item.JUSTIFICATION || ''
+                    );
+
+                    var $info = $('<div/>', {
+                        class: 'fs--1 text-600 mt-1'
+                    }).text(
+                        'Posted by '
+                        + username
+                        + ' - '
+                        + (item.created_at || '')
+                    );
+
+                    $box.append(
+                        $message,
+                        $info
+                    );
+
+                    $history.append($box);
+                });
+            },
+
+            error: function(xhr) {
+
+                console.log(
+                    'CA HISTORY ERROR:',
+                    xhr.responseText
+                );
+
+                $history.html(
+                    '<div class="text-danger">'
+                    + 'Unable to load messages.'
+                    + '</div>'
+                );
+            }
+        });
+    }
+
+    $(document).on(
+        'click',
+        '.btn_convert_post_message',
+        function(e) {
+
+            e.preventDefault();
+
+            var reference =
+                $('.convert_message_reference_value')
+                    .val();
+
+            var message =
+                $('.convert_message_text')
+                    .val()
+                    .trim();
+
+            if (!message) {
+
+                sweetalert(
+                    " ",
+                    "Please enter a message.",
+                    icon = 'warning',
+                    timer = '2000',
+                    btn = false
+                );
+
+                return false;
+            }
+
+            $.ajax({
+                url: '/submit_allocreq_justification_message',
+
+                type: 'POST',
+
+                data: {
+                    reference: reference,
+                    reftype: 'CA',
+                    message: message
+                },
+
+                headers: {
+                    'X-CSRF-TOKEN': getCsrfToken()
+                },
+
+                beforeSend: function() {
+
+                    $('.btn_convert_post_message')
+                        .prop('disabled', true)
+                        .text('POSTING...');
+                },
+
+                success: function(data) {
+
+                    $('.btn_convert_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+                    if (data.status == 2) {
+
+                        $('.convert_message_text')
+                            .val('');
+
+                        loadConvertMessageHistory(
+                            reference
+                        );
+
+                        DataTableReload(
+                            '#convert-alloc-list-table'
+                        );
+
+                    } else {
+
+                        swal(
+                            "Oops...",
+                            data.message ||
+                            "Unable to post message.",
+                            "error"
+                        );
+                    }
+                },
+
+                error: function(xhr) {
+
+                    $('.btn_convert_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+                    console.log(
+                        'CA POST ERROR:',
+                        xhr.responseText
+                    );
+
+                    swal(
+                        "Oops...",
+                        "Unable to post message.",
+                        "error"
+                    );
+                }
+            });
+        }
+    );
+    
 //END READY
 });
 

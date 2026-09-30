@@ -113,7 +113,7 @@
           </div>
        </div>
        <div class="card-body p-2 border-0 ">
-        <table id="allocation-request-list-table" class="fs--1 table table-striped  text-center">
+        <table id="allocation-request-list-table" class="fs--1 table table-striped">
             <thead class="border border-1">
              
                 <tr>
@@ -280,7 +280,65 @@
             </div>
 
             
-            
+            <div class="allocreq_justification_section mt-3 d-none">
+
+                <div class="card border">
+
+                    <div class="card-header py-2 bg-white">
+                        <div class="d-flex justify-content-between align-items-center">
+
+                            <h5 class="mb-0">
+                                Message History
+                            </h5>
+
+                            <span class="badge bg-primary allocreq_message_count">
+                                0
+                            </span>
+
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+
+                        {{-- MESSAGE HISTORY --}}
+                        <div
+                            class="allocreq_justification_history"
+                            style="max-height:300px; overflow-y:auto;"
+                        >
+                        </div>
+
+
+                        {{-- POST MESSAGE --}}
+                        <div class="border-top mt-3 pt-3">
+
+                            <div class="mb-2">
+                                <textarea
+                                    class="form-control allocreq_new_message"
+                                    rows="3"
+                                    placeholder="POST MESSAGE..."
+                                    style="resize:none;"
+                                ></textarea>
+                            </div>
+
+                            <div class="text-end">
+
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-primary btn_allocreq_post_message"
+                                >
+                                    POST MESSAGE
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
         
         <div class="modal-footer px-0 pb-0 ">
@@ -870,6 +928,8 @@ $(document).ready(function(){
         $('.allocreq_datesubmit').text(formatDate(datesubmit, type = "date") || '-')
         $('.allocreq_status').html(getStatusBadge(status, adhtml = ''))
         
+        // LOAD JUSTIFICATION HERE
+         loadAllocReqJustification(reftr);
 
         if(submitted === 1 || cancelled === 1) {
 
@@ -1029,9 +1089,442 @@ $(document).ready(function(){
 
    });
 
+    //added by emrick august 18, 2026
+    function loadAllocReqJustification(reference) {
+
+        var $section = $('.allocreq_justification_section');
+        var $history = $('.allocreq_justification_history');
+        var $count = $('.allocreq_message_count');
+
+        $section.addClass('d-none');
+        $history.empty();
+        $count.text('0');
+
+        if (!reference || reference === '-') {
+            return;
+        }
+
+        $.ajax({
+
+            url:
+                '/get_allocreq_justification?reference='
+                + encodeURIComponent(reference),
+
+            type: 'GET',
+
+            success: function(data) {
+
+                console.log('JUSTIFICATION RESULT:', data);
+
+                $history.empty();
+
+                if (
+                    data.status != 2 ||
+                    !data.data
+                ) {
+                    return;
+                }
+
+                $count.text(data.data.length);
+
+                /*
+                |--------------------------------------------------------------------------
+                | Always show section so user can post a message
+                |--------------------------------------------------------------------------
+                */
+                $section.removeClass('d-none');
 
 
+                /*
+                |--------------------------------------------------------------------------
+                | No messages yet
+                |--------------------------------------------------------------------------
+                */
+                if (data.data.length === 0) {
 
+                    $history.html(
+                        '<div class="text-center text-600 py-3">'
+                        + 'No message history yet.'
+                        + '</div>'
+                    );
+
+                    return;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Build timeline
+                |--------------------------------------------------------------------------
+                */
+                $.each(data.data, function(index, item) {
+
+                    var dateObj = new Date(item.created_at);
+
+                    var date = '';
+                    var time = '';
+
+                    if (!isNaN(dateObj.getTime())) {
+
+                        date =
+                            String(dateObj.getMonth() + 1).padStart(2, '0')
+                            + '/'
+                            + String(dateObj.getDate()).padStart(2, '0')
+                            + '/'
+                            + dateObj.getFullYear();
+
+                        time =
+                            String(dateObj.getHours()).padStart(2, '0')
+                            + ':'
+                            + String(dateObj.getMinutes()).padStart(2, '0')
+                            + ':'
+                            + String(dateObj.getSeconds()).padStart(2, '0');
+                    }
+
+                    var isLast =
+                        index === data.data.length - 1;
+
+
+                    var $item = $('<div/>', {
+                        class:
+                            'timeline-item position-relative mb-3'
+                    });
+
+
+                    var $row = $('<div/>', {
+                        class: 'row g-md-3'
+                    });
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | DATE COLUMN
+                    |--------------------------------------------------------------------------
+                    */
+                    var $dateColumn = $('<div/>', {
+                        class:
+                            'col-12 col-md-auto d-flex'
+                    });
+
+
+                    var $dateBox = $('<div/>', {
+                        class:
+                            'timeline-item-date order-1 order-md-0 me-md-4'
+                    });
+
+
+                    var $dateText = $('<p/>', {
+                        class:
+                            'fs--2 fw-semi-bold text-600 text-end mb-0'
+                    });
+
+                    $dateText.append(
+                        document.createTextNode(date)
+                    );
+
+                    $dateText.append('<br>');
+
+                    $dateText.append(
+                        document.createTextNode(time)
+                    );
+
+                    $dateBox.append($dateText);
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | TIMELINE DOT
+                    |--------------------------------------------------------------------------
+                    */
+                    var $bar = $('<div/>', {
+                        class:
+                            'timeline-item-bar position-relative me-3'
+                    });
+
+
+                    var $icon = $('<div/>', {
+                        class:
+                            'd-flex align-items-center justify-content-center rounded-circle bg-primary text-white fw-bold',
+                        css: {
+                            width: '28px',
+                            height: '28px',
+                            fontSize: '11px',
+                            zIndex: 2,
+                            position: 'relative'
+                        }
+                    });
+
+                    var username =
+                        item.USERNAME || '-';
+
+                    var initial =
+                        username.substring(0, 1).toUpperCase();
+
+                    $icon.text(initial);
+
+                    $bar.append($icon);
+
+
+                    if (!isLast) {
+
+                        var $line = $('<span/>', {
+                            css: {
+                                position: 'absolute',
+                                left: '13px',
+                                top: '28px',
+                                bottom: '-25px',
+                                borderLeft:
+                                    '1px dashed #cbd0dd'
+                            }
+                        });
+
+                        $bar.append($line);
+                    }
+
+
+                    $dateColumn.append(
+                        $dateBox,
+                        $bar
+                    );
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | MESSAGE COLUMN
+                    |--------------------------------------------------------------------------
+                    */
+                    var $messageColumn = $('<div/>', {
+                        class: 'col'
+                    });
+
+
+                    var $content = $('<div/>', {
+                        class:
+                            'timeline-item-content ps-2'
+                    });
+
+
+                    var $message = $('<div/>', {
+                        class:
+                            'fw-semi-bold text-dark mb-1'
+                    }).text(
+                        item.JUSTIFICATION || ''
+                    );
+
+
+                    var $postedBy = $('<div/>', {
+                        class:
+                            'fs--1 text-600'
+                    });
+
+                    $postedBy.append(
+                        document.createTextNode(
+                            'Posted by '
+                        )
+                    );
+
+                    $('<span/>', {
+                        class:
+                            'fw-semi-bold text-dark'
+                    })
+                    .text(username)
+                    .appendTo($postedBy);
+
+
+                    $content.append(
+                        $message,
+                        $postedBy
+                    );
+
+                    $messageColumn.append(
+                        $content
+                    );
+
+
+                    $row.append(
+                        $dateColumn,
+                        $messageColumn
+                    );
+
+                    $item.append($row);
+
+                    $history.append($item);
+                });
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Scroll latest message into view
+                |--------------------------------------------------------------------------
+                */
+                $history.scrollTop(
+                    $history[0].scrollHeight
+                );
+            },
+
+            error: function(xhr) {
+
+                console.log(
+                    'JUSTIFICATION ERROR:',
+                    xhr.responseText
+                );
+            }
+        });
+    }
+
+    $(document).on(
+        'click',
+        '.btn_allocreq_post_message',
+        function(e) {
+
+            e.preventDefault();
+
+            var reference =
+                $('.allocreq_refnum')
+                    .text()
+                    .trim();
+
+            var message =
+                $('.allocreq_new_message')
+                    .val()
+                    .trim();
+
+
+            if (!reference || reference === '-') {
+
+                sweetalert(
+                    " ",
+                    "No allocation request selected.",
+                    icon = 'warning',
+                    timer = '2500',
+                    btn = false
+                );
+
+                return false;
+            }
+
+
+            if (message === '') {
+
+                blinkEmptyValue(
+                    '.allocreq_new_message'
+                );
+
+                sweetalert(
+                    " ",
+                    "Please enter a message.",
+                    icon = 'warning',
+                    timer = '2500',
+                    btn = false
+                );
+
+                return false;
+            }
+
+
+            $.ajax({
+
+                url:
+                    '/submit_allocreq_justification_message',
+
+                type: 'POST',
+
+                data: {
+                    reference: reference,
+                    message: message
+                },
+
+                headers: {
+                    'X-CSRF-TOKEN':
+                        getCsrfToken()
+                },
+
+                beforeSend: function() {
+
+                    $('.btn_allocreq_post_message')
+                        .prop('disabled', true)
+                        .text('POSTING...');
+                },
+
+                success: function(data) {
+
+                    $('.btn_allocreq_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+
+                    if (data.status == 2) {
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Clear textarea
+                        |--------------------------------------------------------------------------
+                        */
+                        $('.allocreq_new_message')
+                            .val('');
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Refresh timeline
+                        |--------------------------------------------------------------------------
+                        */
+                        loadAllocReqJustification(
+                            reference
+                        );
+
+
+                        toastifyShow(
+                            "<span class='text-success fw-bold'>"
+                            + "Message posted!"
+                            + "</span>"
+                        );
+
+                    }
+                    else if (data.status == 411) {
+
+                        sweetalert(
+                            " ",
+                            data.message,
+                            icon = 'warning',
+                            timer = '2500',
+                            btn = false
+                        );
+
+                    }
+                    else {
+
+                        swal(
+                            "Oops...",
+                            data.message ||
+                                "Unable to post message.",
+                            "error"
+                        );
+                    }
+                },
+
+                error: function(xhr) {
+
+                    $('.btn_allocreq_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+                    console.log(
+                        'POST MESSAGE ERROR:',
+                        xhr.responseText
+                    );
+
+                    swal(
+                        "Oops...",
+                        "Something went wrong. Please contact your administrator.",
+                        "error"
+                    );
+                }
+
+            });
+
+        }
+    );
 
    
 //END READY

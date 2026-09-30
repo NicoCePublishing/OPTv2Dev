@@ -1,6 +1,6 @@
 @extends('layouts.admin_app')
 
-@section('title') Approvals Alloc. Request @endsection
+@section('title') Approvals Alloc. Out Request @endsection
 
 @section('belowcontent')
 
@@ -191,7 +191,7 @@
   </div>
 
 <div class="for_approval_projection_card row mb-2">
-        <div class="col-12 col-md-12 col-xxl-6 text-left">
+        <div class="col-12 col-md-12 col-xxl-12 text-left">
             
 
             <div class="card border-0 p-2" >  
@@ -222,6 +222,74 @@
                         </table>
                     </div>
                 </div>
+                {{-- ============================================================
+                    MESSAGE HISTORY
+                    Only BSA -> Non-BSA
+                ============================================================ --}}
+                @if($transfertype == 'bsa_to_nonbsa')
+
+                <div class="border-top p-3">
+
+                    <div class="card border">
+
+                        <div class="card-header py-2 bg-white">
+
+                            <div class="d-flex justify-content-between align-items-center">
+
+                                <h5 class="mb-0">
+                                    Message History
+                                </h5>
+
+                                <span class="badge bg-primary allocreq_approval_message_count">
+                                    0
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="card-body">
+
+                            {{-- History --}}
+                            <div
+                                class="allocreq_approval_message_history"
+                                style="max-height:250px; overflow-y:auto;">
+                            </div>
+
+
+                            {{-- Post Message --}}
+                            <div class="border-top mt-3 pt-3">
+
+                                <textarea
+                                    class="form-control allocreq_approval_message_text"
+                                    rows="3"
+                                    placeholder="POST MESSAGE..."
+                                    style="resize:none;">
+                                </textarea>
+
+
+                                <div class="text-end mt-2">
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-primary btn_allocreq_approval_post_message">
+
+                                        POST MESSAGE
+
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                @endif
                 <div class="">
             
                    
@@ -249,7 +317,7 @@
     <div class="modal-dialog modal modal-dialog-centered">
     <div class="modal-content bg-100">
 
-       <form class="submit_return_projection" method="POST">
+       <form class="submit_disapprove_allocreqout" method="POST">
         @csrf
         <div class="modal-header">
          
@@ -381,10 +449,20 @@ $.ajax({
 
 $(document).ready(function () {
 
-      
     var docnum = "{{ request('docnum') }}"
     for_approval_allocreq_out_details(docnum)
 
+    var allocReqReference = @json($reference);
+    var allocReqTransferType = @json($transfertype);
+
+    if (
+        allocReqTransferType === 'bsa_to_nonbsa'
+    ) {
+
+        loadApprovalAllocReqMessages(
+            allocReqReference
+        );
+    }
 
     $(document).on('change','.apprvallocreqqty',function (e) {
 
@@ -413,6 +491,93 @@ $(document).ready(function () {
 
 
     })
+    $(document).on('submit','.submit_disapprove_allocreqout',function (e) {
+
+            e.preventDefault();
+
+            var forapprovalallocreqcheckbox = $('.for_approval_allocreqout_checkisbn:checked');
+
+            if(forapprovalallocreqcheckbox.length === 0) {
+
+                sweetalert(" ","Please select a title to disapprove", icon = 'warning', timer = '5000', btn = false);
+                return false;
+
+            }
+
+            var formData = new FormData(this);
+
+            // $idallocreq_input = $request->input('id');
+            // $allocreqtype_input = $request->input('alloctype');
+            // $docnum_input = $request->input('docnum');
+            // $remarks = $request->input('remarks');
+
+            forapprovalallocreqcheckbox.each( function(index) {
+                
+                let $tr = $(this).closest('tr');           
+                let $input = $tr.find('.apprvallocreqqty'); 
+
+                let docnum   = $input.data('docnum');
+                let alloctype   = $input.data('alloctype');
+                let id           = $input.data('id');
+                let isbn           = $input.data('isbn');
+
+                formData.append('id[]', id);
+                formData.append('docnum[]', docnum);
+                formData.append('alloctype[]', alloctype);
+
+            })
+
+            $.ajax({
+                    url:"/submit_disapprove_allocreqout", 
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    type:'POST',
+                    headers: {
+                            'X-CSRF-TOKEN': getCsrfToken() 
+                    },
+                    beforeSend: function() {
+                    
+                    showLoadingDiv('#for-approval-allocreqout-table')
+                    },
+                    success:function(data){
+                        console.log(data);
+                        hideLoadingDiv('#for-approval-allocreqout-table')
+                        
+                    //    var data = data[0];
+                        
+                        if(data.status == '2') {
+
+                            //  sweetalert(" ","Status Updated!", icon = 'success', timer = '1000', btn = false);
+                            
+                                var html = "" 
+                                + "<span class='text-danger fw-bold'>Title(s) Disapproved.</span>"
+                                + "";
+
+                                toastifyShow(html)  
+
+                                for_approval_allocreq_out_details(docnum)
+
+                                $('.modal').modal('hide');
+
+                                
+                        }
+                        else   {
+
+                                swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                        }
+
+                        get_projectionperiodstatus (projdocnum)
+                        
+                    },
+                        error:function(data){
+                                hideLoading();
+                            
+                                swal("Oops...", "Something went wrong. Please contact your administrator", "error");
+                    }
+            });
+            })
+
     $(document).on('click','.btn-approve',function (e) {
 
         var forapprovalallocreqcheckbox = $('.for_approval_allocreqout_checkisbn:checked');
@@ -578,6 +743,326 @@ $(document).ready(function () {
 
     });
 
+    //added by emrick aug 18 2026
+    function loadApprovalAllocReqMessages(reference) {
+
+        var $history =
+            $('.allocreq_approval_message_history');
+
+        var $count =
+            $('.allocreq_approval_message_count');
+
+        $history.html(
+            '<div class="text-center text-600 py-3">Loading...</div>'
+        );
+
+        $.ajax({
+
+            url:
+                '/get_allocreq_justification'
+                + '?reference='
+                + encodeURIComponent(reference)
+                + '&reftype=AR',
+
+            type: 'GET',
+
+            success: function(data) {
+
+                console.log(
+                    'AR APPROVAL HISTORY:',
+                    data
+                );
+
+                $history.empty();
+
+                if (
+                    data.status != 2 ||
+                    !data.data
+                ) {
+
+                    $count.text('0');
+
+                    return;
+                }
+
+                $count.text(data.data.length);
+
+
+                if (data.data.length === 0) {
+
+                    $history.html(
+                        '<div class="text-center text-600 py-3">'
+                        + 'No messages yet.'
+                        + '</div>'
+                    );
+
+                    return;
+                }
+
+
+                $.each(
+                    data.data,
+                    function(index, item) {
+
+                        var username =
+                            item.USERNAME || '-';
+
+                        var created =
+                            item.created_at || '';
+
+                        var initial =
+                            username.substring(0, 1)
+                                .toUpperCase();
+
+
+                        var $item = $('<div/>', {
+                            class:
+                                'd-flex position-relative mb-3'
+                        });
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Timeline dot
+                        |--------------------------------------------------------------------------
+                        */
+                        var $icon = $('<div/>', {
+
+                            class:
+                                'rounded-circle bg-primary '
+                                + 'text-white fw-bold '
+                                + 'd-flex align-items-center '
+                                + 'justify-content-center me-3',
+
+                            css: {
+                                width: '30px',
+                                height: '30px',
+                                minWidth: '30px'
+                            }
+
+                        }).text(initial);
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Message
+                        |--------------------------------------------------------------------------
+                        */
+                        var $content = $('<div/>', {
+                            class: 'flex-grow-1'
+                        });
+
+
+                        var $message = $('<div/>', {
+                            class:
+                                'fw-semi-bold text-dark'
+                        }).text(
+                            item.JUSTIFICATION || ''
+                        );
+
+
+                        var $details = $('<div/>', {
+                            class:
+                                'fs--1 text-600 mt-1'
+                        });
+
+
+                        $details.append(
+                            document.createTextNode(
+                                'Posted by '
+                            )
+                        );
+
+
+                        $('<span/>', {
+                            class:
+                                'fw-semi-bold text-dark'
+                        })
+                        .text(username)
+                        .appendTo($details);
+
+
+                        if (created) {
+
+                            $details.append(
+                                document.createTextNode(
+                                    ' - ' + created
+                                )
+                            );
+                        }
+
+
+                        $content.append(
+                            $message,
+                            $details
+                        );
+
+
+                        $item.append(
+                            $icon,
+                            $content
+                        );
+
+
+                        $history.append($item);
+                    }
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Latest message visible
+                |--------------------------------------------------------------------------
+                */
+                $history.scrollTop(
+                    $history[0].scrollHeight
+                );
+            },
+
+            error: function(xhr) {
+
+                console.log(
+                    'AR APPROVAL HISTORY ERROR:',
+                    xhr.responseText
+                );
+
+                $history.html(
+                    '<div class="text-danger">'
+                    + 'Unable to load messages.'
+                    + '</div>'
+                );
+            }
+
+        });
+    } 
+
+    $(document).on(
+        'click',
+        '.btn_allocreq_approval_post_message',
+        function(e) {
+
+            e.preventDefault();
+
+
+            var reference =
+                @json($reference);
+
+
+            var message =
+                $('.allocreq_approval_message_text')
+                    .val()
+                    .trim();
+
+
+            if (message === '') {
+
+                sweetalert(
+                    " ",
+                    "Please enter a message.",
+                    icon = 'warning',
+                    timer = '2000',
+                    btn = false
+                );
+
+                return false;
+            }
+
+
+            $.ajax({
+
+                url:
+                    '/submit_allocreq_justification_message',
+
+                type: 'POST',
+
+                data: {
+                    reference: reference,
+                    reftype: 'AR',
+                    message: message
+                },
+
+                headers: {
+                    'X-CSRF-TOKEN':
+                        getCsrfToken()
+                },
+
+                beforeSend: function() {
+
+                    $('.btn_allocreq_approval_post_message')
+                        .prop('disabled', true)
+                        .text('POSTING...');
+                },
+
+                success: function(data) {
+
+                    $('.btn_allocreq_approval_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+
+                    if (data.status == 2) {
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Clear textarea
+                        |--------------------------------------------------------------------------
+                        */
+                        $('.allocreq_approval_message_text')
+                            .val('');
+
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Reload message history
+                        |--------------------------------------------------------------------------
+                        */
+                        loadApprovalAllocReqMessages(
+                            reference
+                        );
+
+
+                        toastifyShow(
+                            "<span class='text-success fw-bold'>"
+                            + "Message posted!"
+                            + "</span>"
+                        );
+
+
+                    } else {
+
+                        swal(
+                            "Oops...",
+                            data.message ||
+                                "Unable to post message.",
+                            "error"
+                        );
+                    }
+                },
+
+                error: function(xhr) {
+
+                    $('.btn_allocreq_approval_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+
+                    console.log(
+                        'AR APPROVAL POST ERROR:',
+                        xhr.responseText
+                    );
+
+
+                    swal(
+                        "Oops...",
+                        "Unable to post message.",
+                        "error"
+                    );
+                }
+
+            });
+
+        }
+    );
    
 //END READY
 });
