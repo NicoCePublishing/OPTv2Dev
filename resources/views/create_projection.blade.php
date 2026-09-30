@@ -123,13 +123,23 @@ $q = ProjectionPeriodList('0',trim(session('division')))->get();
             <span class="input-group-text" style="background-color:white !important;" id="basic-addon1"> 
                    <span class="projection_projperiodstatus"> - </span> 
                    <input type="text" class="create_projection_projperiodstatus d-none un-cl" hidden readonly="readonly'" >
-            </spanZ>
+            </span>
          
            
         </div>
     
     </div>
 </div>
+
+  {{-- Submission remains available after encoding closes. Keep it outside the customer-list loading overlay. --}}
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-3">
+      <div class="text-700 projection_submission_help" role="status">
+          Saved entries are not yet submitted. Select a projection period to submit them for approval.
+      </div>
+      <button type="button" class="btn btn-info btn-sm submit_for_approval_btn" disabled>
+          Submit - For Approval
+      </button>
+  </div>
 
   <div class="mini-db">
   
@@ -506,14 +516,6 @@ $q = ProjectionPeriodList('0',trim(session('division')))->get();
             <ul class="pagination justify-content-end pt-4" id="customPagination"></ul>
         </nav> --}}
 
-          <div class="text-end btn_sv- border-top p-3">
-              <div class="flex between-2 ps_0">
-                  <button type="button" class="btn btn-info btn-sm submit_for_approval_btn">Submit - For Approval</button>
-                  
-                  <button type="button" class="btn btn-primary btn-sm d-none save_as_draft_btn"><i class="fas fa-check"></i> Save</button>
-                 
-              </div>
-          </div>
 
           
       </div>
@@ -1537,6 +1539,11 @@ function create_projection_customer_list_table(projdocnum) {
 
            success:function(data){
                console.log(data);
+                hideLoadingDiv('.create_projection_card');
+                if (!data.projectionperiod || !data.projectionperiod.length) {
+                    sweetalert(" ","Unable to load the selected projection period. Please refresh and try again.", 'error', '5000', false);
+                    return;
+                }
                 var customerlist = data.customerlist;
                 var cshlist = data.cshlist;
 
@@ -1573,6 +1580,7 @@ function create_projection_customer_list_table(projdocnum) {
                 $('.create_projection_projperiodstatus').val(projperiodstatus);
                 $('.create_projection_customerhasreturncount').text(customerhasreturncount);
                 if(projperiodstatus === '1'){
+                    $('.projection_submission_help').text('Saved entries are not yet submitted. Use Submit - For Approval when ready.');
                     
                     $('.projection_projperiodstatus').html(`<span class="text-success blink-text"> Open </span>`)
                     
@@ -1582,6 +1590,7 @@ function create_projection_customer_list_table(projdocnum) {
 
                 }
                 else {
+                    $('.projection_submission_help').text('Encoding is closed. Existing saved entries can still be submitted for approval.');
                     $('.projection_projperiodstatus').html(`<span class="text-600"> Closed </span>`)
                     
                     $('.btn_sv, .nt_search, .create_projection_add_new_customer_modal_btn').addClass('d-none un-cl')
@@ -2772,6 +2781,12 @@ var username = "{{session('user_staff')}}";
     });
 
     $(document).on('click','.submit_for_approval_btn', function(e) {
+        e.preventDefault();
+        var projdocnum = $('.selected_projection_id').val();
+        if (!projdocnum) {
+            swal('Select a projection period', 'Choose the period containing your saved entries first.', 'info');
+            return;
+        }
 
         swal({
             title: "Are you sure you want to submit this projection for approval?",
@@ -2785,7 +2800,6 @@ var username = "{{session('user_staff')}}";
             
             if (willCancel) {
 
-                var projdocnum = $('.selected_projection_id').val();
                 var username = "{{session('user_staff')}}";
                 var pernr = "{{session('pernr')}}";
 
@@ -2799,6 +2813,7 @@ var username = "{{session('user_staff')}}";
                             'X-CSRF-TOKEN': getCsrfToken() 
                     },
                     beforeSend: function() {
+                        $('.submit_for_approval_btn, .selected_projection_id').prop('disabled', true);
                         showLoading();
                     },
                     success: function(data) {
@@ -2828,6 +2843,11 @@ var username = "{{session('user_staff')}}";
                         swal("Oops...", "Something went wrong. Please contact your administrator", "error");
                         hideLoading();
 
+                    },
+                    complete: function() {
+                        $('.selected_projection_id').prop('disabled', false);
+                        $('.submit_for_approval_btn').prop('disabled', !$('.selected_projection_id').val());
+                        hideLoading();
                     }
                     
                 });
@@ -3027,6 +3047,7 @@ var username = "{{session('user_staff')}}";
     $(document).on('change','.selected_projection_id',function (e) {
         
         var v = $(this).val();
+        $('.submit_for_approval_btn').prop('disabled', !v);
         var pernr = "{{session('pernr')}}";
         var username = "{{session('user_staff')}}";
         // showLoading('.table_saleshistory'), setTimeout( () => hideLoading('.table_saleshistory'),1000);
