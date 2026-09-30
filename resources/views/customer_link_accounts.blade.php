@@ -11,7 +11,7 @@
     <div class="col-md-6 order-1 d-flex align-items-center">
        <div class="px-2 border-end">
           <h4 class="m-0 fw-bolder">Customer - Link Accounts</h4>
-          <a class="fw-bold h5 add-new-op text-primary " href="#!" data-bs-toggle="modal" data-bs-target="#AddNewLinkAccountModal">+ Add New</a>     
+          <a class="fw-bold h5 add-new-op text-primary d-none" href="#!" data-bs-toggle="modal" data-bs-target="#AddNewLinkAccountModal">+ Add New</a>     
        </div>
     </div>
     <div class="col-md-2 order-1 d-flex align-items-center d-none">
@@ -116,10 +116,10 @@
                     <thead class="thead-bgcolor text-center" style="position: sticky; top: 0; background-color: white; z-index: 10;">
                         <tr>
                            <th width="5%">#</th>
-                           <th width="35%">Customer Name</th>
-                           <th width="25%">Link From</th>
-                           <th width="25%">Link To</th>
-                           <th width="10%">Date Created</th>
+                           <th width="40%">Customer Name</th>
+                           <th width="28%">From</th>
+                           <th width="18%">Link To</th>
+                           <th width="9%">Action</th>
                         </tr>
                      </thead>
                    
@@ -270,78 +270,219 @@ $(document).ready(function(){
         var customerLinkAccountsListableColumns = [
                 { "data": "num" },
                 { "data": "customername" },
-                { "data": "frompernr" },
-                { "data": "topernr" },
-                { "data": "docdate" },
+                { "data": "frompernrdisplay" },
+                { "data": "topernrdisplay" },
+                { "data": "action" },
         ];
 
-        dTable(customerLinkAccountsListable, customerLinkAccountsListableURL, customerLinkAccountsListableColumns, 250,"",true,'',true,0,0);
+        dTable(customerLinkAccountsListable, customerLinkAccountsListableURL, customerLinkAccountsListableColumns, 270,"",true,'',true,0,0);
 
 
 
-    $(document).on('click','.add_new_link_customer',function (e) {
-         var linktocode = $('.addnewlinkaccount_to_customercode').val()
-         var linkfromcode = $('.addnewlinkaccount_from_customercode').val()
-         var customercode = $(this).data('customercode')
+    $(document).on('click','.btn-linkto',function (e) {
+
+      var linktopernr = $(this).data('linktopernr')
+      var linktopernrname = $(this).data('linktopernrname')
+      var linktocustomercode = $(this).closest("tr").find('.linktocustomercode').val();
+      var linktocustomername  = $(this).closest("tr").find('.linktocustomername').val();
+      var linkfrompernr  = $(this).closest("tr").find('.linkfrompernr').val();
+      
+      swal({
+                    title: 'Link to ' + linktopernrname,
+                    text: "Are you sure you want to link this customer to this AE?",
+                    icon: "info",
+                    buttons: true,
+                    dangerMode: true,
+            })
+            .then((willCancel) => {
+
+                
+                if (willCancel) {
+
+                        $.ajax({
+                           url: '/submit_link_customer',
+                           data: {
+                                 customername: linktocustomername,
+                                 customercode: linktocustomercode,
+                                 linkfrompernr: linkfrompernr,
+                                 linktopernrname: linktopernrname,
+                                 linktopernr: linktopernr,
+                           },
+                              type:'POST',
+                              headers: {
+                                       'X-CSRF-TOKEN': getCsrfToken() 
+                              },
+                           beforeSend: function() {
+
+                                 showLoading();
+                                 
+                           },
+                           success: function(data) {
+
+                              hideLoading();
+
+                                 if (data.status === 2) {
+                           
+                                       sweetalert(" ","Customer Linked Successfully!", icon = 'success', timer = '1500', btn = false);
+                                       DataTableReload('#customer-link-accounts-table')
+
+                                 }
+                                 else {
+                                 
+                                    sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
+                                 }
+                           },
+                           error: function(data) {
+                                 hideLoading(); 
+                                 
+                                 sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
+                           }
+                        });
+                       
+
+                } 
+                else {
+                
+                        
+                }
+        });
+
+
+    });
+
+    $(document).on('click','.btn-unlink',function (e) {
+
+         var customercode = $(this).data('customer')
          var customername = $(this).data('customername')
+         var linktoexistpernr = $(this).closest("tr").find('.linktoexistpernr').val();
 
-         if(linktocode === '' ){
-            blinkEmptyValue('.addnewlinkaccount_to')
-            var html = "" 
-               + "<span class='text-warning fw-bold'>Please select link to</span>"
-               + "";
-
-            toastifyShow(html) 
-
-         }else {
-
-            $.ajax({
-                  url: '/submit_add_new_link_customer',
-                    data: {
-                        customername: customername,
-                        customercode: customercode,
-                        frompernr: linkfromcode,
-                        topernr: linktocode,
-                    },
-                     type:'POST',
-                     headers: {
-                              'X-CSRF-TOKEN': getCsrfToken() 
-                     },
-                    beforeSend: function() {
-
-                        showLoadingDiv('.linkfrom_addnewlinkaccount_from-table');
-                        
-                    },
-                    success: function(data) {
-
-                     hideLoadingDiv('.linkfrom_addnewlinkaccount_from-table');
-
-                        if (data.status === 2) {
-                   
-                               sweetalert(" ","Customer linked successfully!", icon = 'success', timer = '1500', btn = false);
-                               DataTableReload('#customer-link-accounts-table')
-                               DataTableReload('#add-new-link-customer-from-table')
-
-                        } else if (data.status === 401) {
-                              
-                              sweetalert(" ","Customer already linked to this AE code", icon = 'info', timer = '1500', btn = false);
-
-                        }
-                        else {
-                          
-                           sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
-                        }
-                    },
-                    error: function(data) {
-                        hideLoadingDiv('.linkfrom_addnewlinkaccount_from-table');
-                        
-                        sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
-                    }
-                });
-
+         if(linktoexistpernr === ''){
+            sweetalert(" ","It's not yet linked to other AE", icon = 'warning', timer = '1500', btn = false);
+            return false;
          }
 
-    })
+         swal({
+                    title: 'Unlink Customer',
+                    text: "Are you sure you want to unlink this customer?",
+                    icon: "info",
+                    buttons: true,
+                    dangerMode: true,
+            })
+            .then((willCancel) => {
+
+                
+                if (willCancel) {
+
+                        $.ajax({
+                           url: '/submit_unlink_customer',
+                           data: {
+                                 customername: customername,
+                                 customercode: customercode
+                           },
+                              type:'POST',
+                              headers: {
+                                       'X-CSRF-TOKEN': getCsrfToken() 
+                              },
+                           beforeSend: function() {
+
+                                 showLoading();
+                                 
+                           },
+                           success: function(data) {
+
+                              hideLoading();
+
+                                 if (data.status === 2) {
+                           
+                                       sweetalert(" ","Customer Unlinked!", icon = 'success', timer = '1500', btn = false);
+                                       DataTableReload('#customer-link-accounts-table')
+
+                                 }
+                                 else {
+                                 
+                                    sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
+                                 }
+                           },
+                           error: function(data) {
+                                 hideLoading(); 
+                                 
+                                 sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
+                           }
+                        });
+                       
+
+                } 
+                else {
+                
+                        
+                }
+        });
+
+    });
+
+   //  $(document).on('click','.add_new_link_customer',function (e) {
+   //       var linktocode = $('.addnewlinkaccount_to_customercode').val()
+   //       var linkfromcode = $('.addnewlinkaccount_from_customercode').val()
+   //       var customercode = $(this).data('customercode')
+   //       var customername = $(this).data('customername')
+
+   //       if(linktocode === '' ){
+   //          blinkEmptyValue('.addnewlinkaccount_to')
+   //          var html = "" 
+   //             + "<span class='text-warning fw-bold'>Please select link to</span>"
+   //             + "";
+
+   //          toastifyShow(html) 
+
+   //       }else {
+
+   //          $.ajax({
+   //                url: '/submit_add_new_link_customer',
+   //                  data: {
+   //                      customername: customername,
+   //                      customercode: customercode,
+   //                      frompernr: linkfromcode,
+   //                      topernr: linktocode,
+   //                  },
+   //                   type:'POST',
+   //                   headers: {
+   //                            'X-CSRF-TOKEN': getCsrfToken() 
+   //                   },
+   //                  beforeSend: function() {
+
+   //                      showLoadingDiv('.linkfrom_addnewlinkaccount_from-table');
+                        
+   //                  },
+   //                  success: function(data) {
+
+   //                   hideLoadingDiv('.linkfrom_addnewlinkaccount_from-table');
+
+   //                      if (data.status === 2) {
+                   
+   //                             sweetalert(" ","Customer linked successfully!", icon = 'success', timer = '1500', btn = false);
+   //                             DataTableReload('#customer-link-accounts-table')
+   //                             DataTableReload('#add-new-link-customer-from-table')
+
+   //                      } else if (data.status === 401) {
+                              
+   //                            sweetalert(" ","Customer already linked to this AE code", icon = 'info', timer = '1500', btn = false);
+
+   //                      }
+   //                      else {
+                          
+   //                         sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
+   //                      }
+   //                  },
+   //                  error: function(data) {
+   //                      hideLoadingDiv('.linkfrom_addnewlinkaccount_from-table');
+                        
+   //                      sweetalert("Oops...","Please contact the administrator!", icon = 'error', timer = '1500', btn = false);
+   //                  }
+   //              });
+
+   //       }
+
+   //  })
 
     $(document).on('change','.addnewlinkaccount_to',function (e) {
       

@@ -1,5 +1,17 @@
 @extends('layouts.admin_app')
 
+<style>
+.projperiod-sticky{
+    position: sticky;
+    top: 65px;
+    z-index: 100;
+    background: #fff;
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+
+</style>
 @section('title') Dashboard @endsection
 
 @section('belowcontent')
@@ -15,7 +27,7 @@
 
 
 
-<div class="col-md-5 @if(rankView('IMD','CRM','CRM','AVP','CC')) {{ "d-none" }} @endif">
+<div class="col-md-8 @if(rankView('IMD','CRM','CRM','AVP','CC')) {{ "d-none" }} @endif">
     <div class="input-group @if($users->count() < 2) {{ "d-none" }} @else {{ "mb-1"}}  @endif ">
       <span class="input-group-text " id="basic-addon1">AE</span>
       <select class="form-control filterGroup"  required name="userFilterDashboard" id="userFilterDashboard" aria-label="Default select example">
@@ -36,88 +48,40 @@
 
 
 
-<div class="row">
-
-
-    <div class="col-md-7">
-      <div class="input-group mb-1">
-
-        <span class="input-group-text " id="basic-addon1">
-          Projection Period
-        </span>
-        
-        <select class="form-select dashboard_projection_period filterGroup" name="dashboard_projection_period" required aria-label="Default select example">
-            
-              @foreach ($q as $r)
-                    <option value="{{ $r->DOCNUM }}"> {{ projection_period_display($r->DOCNUM) }}</option>
-
-              @endforeach
-        </select>
-        {{-- <span class="input-group-text" style="background-color:white !important;" id="basic-addon1">  --}}
-        <span class="input-group-text" style="background-color:white !important;" id="basic-addon1"> 
-              <span class="dashboard_projperiodstatus"> - </span> 
-      </span>
-
-      </div>
-    </div>
-
-    <div class="col-md-5 mt-0">
-      <div class="d-flex mt-2 justify-content-between text-700 fw-semi-bold">
-        <p class=" mb-0"> Approval Progress: </p>
-        <div class="w-50  h-75 progress dashboardprojtnpercentage" style="height:15px">
-              <div class="">-</div>
-          </div>
-      </div>
-  </div>
-   
-
-</div>
-
-
-@if(rankView('IMD','CRM','CRM','AVP','AVP','CC'))
-
-<div class="col-12 mt-1 mb-3 col-xxl-6">
-  <div class="row g-3">
-    <div class="col-12 col-md-12">
-      <div class="card h-100">
-        <div class="card-body">
-          <div class="d-flex mb-2 justify-content-between border-bottom">
-            <div class=" ">
-              {{-- {{ date_now('year') }}  --}}
-              <h4 class=""> Projection Summary</h4>
-            </div>
+<div class="projperiod-sticky">
+  <div class="row">
+      <div class="col-md-7 px-4">
+        <div class="input-group mb-1">
+          <span class="input-group-text" id="basic-addon1">
+            Projection Period
+          </span>
           
-          </div>
-          <table class="fs--1 table table-striped bg-white text-center" id="dashboard-projectionsummary-list">
-            <thead class="border border-1" width="100%">
-            
-              <tr>
-                
-            
-                  <th scope="col" class="text-center" width="15%">ISBN</th>
-                  <th scope="col" class="text-center" width="40%">Description</th>
-                  <th scope="col" class="text-center" width="11%">Edition</th>
-                  <th scope="col" class="text-center" width="12%">Projection</th>
-                  <th scope="col" title="Allocation" class="text-center" width="12%">Alloc.</th>
-                  <th scope="col" class="text-center" width="10%">Alloc. Rate</th>
-          
-                 
-              </tr>
-            </thead>
-        
+          <select class="form-select dashboard_projection_period filterGroup" name="dashboard_projection_period" required aria-label="Default select example">
+            @foreach ($q as $r)
+              <option value="{{ $r->DOCNUM }}"> {{ projection_period_display($r->DOCNUM) }}</option>
+            @endforeach
+          </select>
 
-        </table>
-
+          <span class="input-group-text" style="background-color:white !important;" id="basic-addon1"> 
+            <span class="dashboard_projperiodstatus"> - </span> 
+          </span>
         </div>
       </div>
-    </div>
+
+      <div class="col-md-5 mt-0">
+        <div class="d-flex mt-2 px-2 justify-content-between text-700 fw-semi-bold">
+          <p class="mb-0"> Approval Progress: </p>
+          <div class="w-50 h-75 progress dashboardprojtnpercentage" style="height:15px">
+            <div class="">-</div>
+          </div>
+        </div>
+      </div>
   </div>
 </div>
 
 
-@endif
 
-@if(rankView('AE','RSM','SSM'))
+@if(rankView('AE','RSM','SSM','AVP'))
 
 
 <div class="col-12 mt-1 col-xl-12 col-xxl-12">
@@ -393,6 +357,113 @@
 
 
 
+@if(rankView('IMD','CRM','CC','RSM','SSM','AVP'))
+
+<div class="col-12 mt-1 mb-3 col-xxl-6">
+  <div class="row g-3">
+    <div class="col-12 col-md-12">
+      <div class="card h-100">
+        <div class="card-body p-3">
+          <div class="pb-2 border-bottom">
+            <div class="row">
+              <div class="col-md-5">
+                <h4 class=""> Approval Status</h4>
+               
+              </div>
+              <div class="col-md-7 text-end">
+                <div class="dropdown font-sans-serif d-inline-block">
+
+                  <button class="btn btn-phoenix-secondary dropdown-toggle btn-sm" id="dropdownMenuButton" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      <i class="fa fa-download me-2"></i> Download
+                  </button><span class="caret"> </span>
+                  <div class="dropdown-menu dropdown-menu-end py-0" aria-labelledby="dropdownMenuButton">
+                      {{-- <div class="border-0 dropdown-divider"></div>    --}}
+          
+                  
+                          <a class="dropdown-item btn-exportexcel-dashboard-allocsummary text-success-600" href="#"><i class="fa fa-file-excel"></i> Excel</a>
+                  </div>
+                </div>
+             
+              </div>
+            
+          
+            </div>
+          
+          </div>
+          <table id="reports-projapproval-status-list" class="fs--1 table table-striped  text-center">
+            <thead class="border border-1">
+               <tr role="row">
+            
+               
+               </tr>
+               <tr>
+                    {{-- <th scope="col" class="text-center" width="3%">#</th> --}}
+                    <th scope="col" class="text-center" width="20%">RSM</th>
+                    <th scope="col" class="text-center" width="26%">Name</th>
+                    <th scope="col" class="text-center" width="8%">Total <br> Projection</th>
+                    <th scope="col" class="text-center" width="8%">Saved</th>
+                    <th scope="col" class="text-center" width="8%">Returned</th>
+                    <th scope="col" class="text-center" width="8%">Pending <br> (RSM)</th>
+                    <th scope="col" class="text-center" width="8%">Pending <br> (SSM)</th>
+                    <th scope="col" class="text-center" width="8%">Approved</th>
+                    <th scope="col" class="text-center" width="6%">Status</th>
+            </tr>
+            </thead>
+            
+      </table>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+@endif
+
+
+@if(rankView('IMD','CRM','CRM','AVP','AVP','CC'))
+
+<div class="col-12 mt-1 mb-3 col-xxl-6">
+  <div class="row g-3">
+    <div class="col-12 col-md-12">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex mb-2 justify-content-between border-bottom">
+            <div class=" ">
+              {{-- {{ date_now('year') }}  --}}
+              <h4 class=""> Projection Summary</h4>
+            </div>
+          
+          </div>
+          <table class="fs--1 table table-striped bg-white text-center" id="dashboard-projectionsummary-list">
+            <thead class="border border-1" width="100%">
+            
+              <tr>
+                
+            
+                  <th scope="col" class="text-center" width="15%">ISBN</th>
+                  <th scope="col" class="text-center" width="40%">Description</th>
+                  <th scope="col" class="text-center" width="11%">Edition</th>
+                  <th scope="col" class="text-center" width="12%">Projection</th>
+                  <th scope="col" title="Allocation" class="text-center" width="12%">Alloc.</th>
+                  <th scope="col" class="text-center" width="10%">Alloc. Rate</th>
+          
+                 
+              </tr>
+            </thead>
+        
+
+        </table>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+@endif
 
 <div class="offcanvas offcanvas-start content-offcanvas border offcanvas-backdrop-transparent border-start border-300 shadow-none bg-100" id="DashboardTitleCustomerProjtnOffCanvas" tabindex="-1" aria-labelledby="offcanvasLeftLabel">
   <div class="offcanvas-header pb-0">
@@ -634,6 +705,31 @@ function echartSetOption(chart, userOptions, getDefaultOptions, responsiveOption
     }
 var pernrOneChoice = oneChoices('#userFilterDashboard')
 
+function projApprovalStatus(basedocnum,pernr) {
+
+            var projApprovalstatusListable = $("#reports-projapproval-status-list");
+            var projApprovalstatusListableURL =  "/datatable_reports_projapprovalstatus?basedocnum="+basedocnum+"&pernr="+pernr;
+            var projApprovalstatusListableColumns = [
+                   
+
+
+                     { "data": "pernrrsmname" },
+                     { "data": "pernrname" },
+                     { "data": "totalprojtnvalue" },
+                     { "data": "totalsavedvalue" },
+                     { "data": "totalreturnedvalue" },
+                     { "data": "totalpendingrsmvalue" },
+                     { "data": "totalpendingssmvalue" },
+                     { "data": "totalapprovedvalue" },
+                     { "data": "statusbadge" },
+            ];
+
+       
+
+            dTableRowGroup(projApprovalstatusListable,0, projApprovalstatusListableURL, projApprovalstatusListableColumns, 250,"",true,'',false,0,0);
+
+
+}
 function dashboard_graphs_data(pernrurl,basedocnum) {
 
   var pernr = pernrurl;
@@ -917,7 +1013,7 @@ $(document).ready(function () {
     var pernr = $('#userFilterDashboard').val();
     var basedocnum = $('.dashboard_projection_period').val();
 
-
+  projApprovalStatus(basedocnum,pernr)
   dashboard_graphs_data(pernr,basedocnum)
 
 
@@ -936,6 +1032,7 @@ $(document).ready(function () {
 
     
     dashboard_graphs_data(pernr,basedocnum);
+    projApprovalStatus(basedocnum,pernr)
 
   });
 

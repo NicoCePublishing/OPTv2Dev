@@ -30,7 +30,7 @@
 
  
 <div class="row">
-  <div class="col-12 col-md-12 col-xxl-6 text-left">
+  <div class="col-12 col-md-12 col-xxl-12 text-left">
       
 
       <div class="card border border-300 p-0" >    
