@@ -47,6 +47,42 @@
     $username = request('name');
     $fname = request('fname');
 
+    // Get one convert allocation record for this user + projection
+    $qconvertmessage = \App\Models\OPTv2ConvertAllocd::where(
+                            'BASEDOCNUM',
+                            $projdocnum
+                        )
+                        ->where(
+                            'USERNAME',
+                            $username
+                        )
+                        ->first();
+
+    $convertMessagePernr =
+        $qconvertmessage
+            ? trim($qconvertmessage->PERNR)
+            : '';
+
+    $convertFromType =
+        $qconvertmessage
+            ? $qconvertmessage->FROMCONVERTTYPE
+            : '';
+
+    $convertToType =
+        $qconvertmessage
+            ? $qconvertmessage->TOCONVERTTYPE
+            : '';
+
+    // Same reference used when initial justification was inserted
+    $convertMessageReference =
+        $convertMessagePernr != ''
+            ? 'CA-' . $projdocnum . '-' . $convertMessagePernr
+            : '';
+
+    // Only BSA -> Non-BSA has justification/history
+    $showConvertMessages =
+        $convertFromType == 'bsa'
+        && $convertToType == 'nonbsa';
   @endphp
 
   <div class="">
@@ -150,7 +186,69 @@
                 {{-- </div> --}}
                 <div class="">
             
-                   
+                        @if($showConvertMessages)
+
+                        <div class="border-top p-3">
+
+                            <div class="card border">
+
+                                <div class="card-header py-2 bg-white">
+
+                                    <div class="d-flex justify-content-between align-items-center">
+
+                                        <h5 class="mb-0">
+                                            Message History
+                                        </h5>
+
+                                        <span class="badge bg-primary convert_approval_message_count">
+                                            0
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+
+                                <div class="card-body">
+
+                                    {{-- MESSAGE HISTORY --}}
+                                    <div
+                                        class="convert_approval_message_history"
+                                        style="max-height:250px; overflow-y:auto;">
+                                    </div>
+
+
+                                    {{-- POST MESSAGE --}}
+                                    <div class="border-top mt-3 pt-3">
+
+                                        <textarea
+                                            class="form-control convert_approval_message_text"
+                                            rows="3"
+                                            placeholder="POST MESSAGE..."
+                                            style="resize:none;">
+                                        </textarea>
+
+                                        <div class="text-end mt-2">
+
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-primary btn_convert_approval_post_message">
+
+                                                POST MESSAGE
+
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        @endif    
                         <div class="text-end border-top p-3">
                             <div>
                                 
@@ -228,6 +326,23 @@ $(document).ready(function () {
       
     var basedocnum = "{{ request('pid') }}"
     var username = "{{ request('name') }}"
+
+    var convertMessageReference =
+        @json($convertMessageReference);
+
+    var showConvertMessages =
+        @json($showConvertMessages);
+
+
+    if (
+        showConvertMessages &&
+        convertMessageReference
+    ) {
+
+        loadApprovalConvertMessages(
+            convertMessageReference
+        );
+    }
 
     var forApprovalConvertAllocListable = $("#for-approval-convertalloc-list-table");
     var forApprovalConvertAllocListableURL =  "/datatable_for_approval_convertalloc_list?basedocnum="+basedocnum+"&username="+username;
@@ -509,7 +624,329 @@ $(document).ready(function () {
 
     });
 
-   
+    function loadApprovalConvertMessages(reference) {
+
+        var $history =
+            $('.convert_approval_message_history');
+
+        var $count =
+            $('.convert_approval_message_count');
+
+
+        $history.html(
+            '<div class="text-center text-600 py-3">Loading...</div>'
+        );
+
+        $count.text('0');
+
+
+        if (!reference) {
+            return;
+        }
+
+
+        $.ajax({
+
+            url:
+                '/get_allocreq_justification'
+                + '?reference='
+                + encodeURIComponent(reference)
+                + '&reftype=CA',
+
+            type: 'GET',
+
+            success: function(data) {
+
+                console.log(
+                    'CONVERT APPROVAL HISTORY:',
+                    data
+                );
+
+                $history.empty();
+
+
+                if (
+                    data.status != 2 ||
+                    !data.data
+                ) {
+
+                    return;
+                }
+
+
+                $count.text(
+                    data.data.length
+                );
+
+
+                if (data.data.length === 0) {
+
+                    $history.html(
+                        '<div class="text-center text-600 py-3">'
+                        + 'No messages yet.'
+                        + '</div>'
+                    );
+
+                    return;
+                }
+
+
+                $.each(
+                    data.data,
+                    function(index, item) {
+
+                        var username =
+                            item.USERNAME || '-';
+
+                        var created =
+                            item.created_at || '';
+
+                        var initial =
+                            username
+                                .substring(0, 1)
+                                .toUpperCase();
+
+
+                        var $item = $('<div/>', {
+                            class:
+                                'd-flex position-relative mb-3'
+                        });
+
+
+                        var $icon = $('<div/>', {
+
+                            class:
+                                'rounded-circle bg-primary '
+                                + 'text-white fw-bold '
+                                + 'd-flex align-items-center '
+                                + 'justify-content-center me-3',
+
+                            css: {
+                                width: '30px',
+                                height: '30px',
+                                minWidth: '30px'
+                            }
+
+                        }).text(initial);
+
+
+                        var $content = $('<div/>', {
+                            class: 'flex-grow-1'
+                        });
+
+
+                        var $message = $('<div/>', {
+                            class:
+                                'fw-semi-bold text-dark'
+                        }).text(
+                            item.JUSTIFICATION || ''
+                        );
+
+
+                        var $details = $('<div/>', {
+                            class:
+                                'fs--1 text-600 mt-1'
+                        });
+
+
+                        $details.append(
+                            document.createTextNode(
+                                'Posted by '
+                            )
+                        );
+
+
+                        $('<span/>', {
+                            class:
+                                'fw-semi-bold text-dark'
+                        })
+                        .text(username)
+                        .appendTo($details);
+
+
+                        if (created) {
+
+                            $details.append(
+                                document.createTextNode(
+                                    ' - ' + created
+                                )
+                            );
+                        }
+
+
+                        $content.append(
+                            $message,
+                            $details
+                        );
+
+
+                        $item.append(
+                            $icon,
+                            $content
+                        );
+
+
+                        $history.append(
+                            $item
+                        );
+                    }
+                );
+
+
+                $history.scrollTop(
+                    $history[0].scrollHeight
+                );
+            },
+
+            error: function(xhr) {
+
+                console.log(
+                    'CONVERT APPROVAL HISTORY ERROR:',
+                    xhr.responseText
+                );
+
+                $history.html(
+                    '<div class="text-danger">'
+                    + 'Unable to load messages.'
+                    + '</div>'
+                );
+            }
+
+        });
+    }
+
+    $(document).on(
+        'click',
+        '.btn_convert_approval_post_message',
+        function(e) {
+
+            e.preventDefault();
+
+
+            var reference =
+                @json($convertMessageReference);
+
+
+            var message =
+                $('.convert_approval_message_text')
+                    .val()
+                    .trim();
+
+
+            if (!reference) {
+
+                sweetalert(
+                    " ",
+                    "Convert reference not found.",
+                    icon = 'warning',
+                    timer = '2000',
+                    btn = false
+                );
+
+                return false;
+            }
+
+
+            if (message === '') {
+
+                sweetalert(
+                    " ",
+                    "Please enter a message.",
+                    icon = 'warning',
+                    timer = '2000',
+                    btn = false
+                );
+
+                return false;
+            }
+
+
+            $.ajax({
+
+                url:
+                    '/submit_allocreq_justification_message',
+
+                type: 'POST',
+
+                data: {
+                    reference: reference,
+                    reftype: 'CA',
+                    message: message
+                },
+
+                headers: {
+                    'X-CSRF-TOKEN':
+                        getCsrfToken()
+                },
+
+                beforeSend: function() {
+
+                    $('.btn_convert_approval_post_message')
+                        .prop('disabled', true)
+                        .text('POSTING...');
+                },
+
+                success: function(data) {
+
+                    $('.btn_convert_approval_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+
+                    if (data.status == 2) {
+
+                        $('.convert_approval_message_text')
+                            .val('');
+
+
+                        loadApprovalConvertMessages(
+                            reference
+                        );
+
+
+                        toastifyShow(
+                            "<span class='text-success fw-bold'>"
+                            + "Message posted!"
+                            + "</span>"
+                        );
+
+                    } else {
+
+                        swal(
+                            "Oops...",
+                            data.message ||
+                                "Unable to post message.",
+                            "error"
+                        );
+                    }
+                },
+
+                error: function(xhr) {
+
+                    $('.btn_convert_approval_post_message')
+                        .prop('disabled', false)
+                        .text('POST MESSAGE');
+
+
+                    console.log(
+                        'CONVERT APPROVAL POST ERROR:',
+                        xhr.responseText
+                    );
+
+
+                    swal(
+                        "Oops...",
+                        "Unable to post message.",
+                        "error"
+                    );
+                }
+
+            });
+
+        }
+    );
+
+    
 //END READY
 });
 

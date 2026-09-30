@@ -29,7 +29,6 @@ use App\Models\CrmProjection;
 use App\Models\OPTv2ProjectionPeriod;
 use App\Models\OPTv2Projectionh;
 use App\Models\OPTv2Projectiond;
-use App\Models\OPTv2Projectionda;
 use App\Models\OPTv2Allocated;
 use App\Models\OPTv2Files;
 use App\Models\OPTv2CustomerLink;
@@ -51,6 +50,7 @@ use App\Models\ZmmMatdel;
 use App\Models\ZsdBsah;
 use App\Models\ZsdBsad;
 use App\Models\ZprUsers;
+use App\Models\ZmmPrersOpenPO;
 use App\Models\ZsdTs;
 use App\Models\PushListTagging;
 use App\Models\T001L;
@@ -61,6 +61,7 @@ use App\Models\Ekko;
 use App\Models\CustPos;
 use App\Models\TblBudget;
 use App\Models\NewSales;
+use App\Models\OPTv2Justification;
 use Auth;
 use DB;
 use PDF;
@@ -97,6 +98,13 @@ class Mkacontrol extends Controller
                 $query->whereNotNull('t1.APPROVED1')
                       ->whereNull('t1.APPROVED2');
             }
+            //added by emrick 8/25/2026
+            else if (stripos($rank, 'AVP') !== false) {
+
+                // AVP must NOT see Allocation Transfer Request - In
+                $query->where('t1.PERNR', '00');
+
+            }
             else {
                 
             }
@@ -107,7 +115,8 @@ class Mkacontrol extends Controller
 
             if (strpos($rank, 'RSM') !== false) {
                 $query->whereIn('t1.PERNR', $arrayFilterPernr)
-                ->whereNull('t1.APPROVED1');
+                ->whereNull('t1.APPROVED1')
+                ->where('t1.TOCONVERTTYPE','nonbsa');
             }
 
             else if (strpos($rank, 'SSM') !== false) {
@@ -167,7 +176,9 @@ class Mkacontrol extends Controller
             }
             else if (strpos($rank, 'AVP') !== false) {
                         $query ->whereNotNull('t1.APPROVED5')
-                        ->whereNull('t1.APPROVED6');
+                        ->whereNull('t1.APPROVED6')
+                        //added by emrick 8/25/2026
+                        ->where('t2.TRANSFERTYPE', 'bsa_to_nonbsa');
             }
             else {
                 $query   ->where('t1.PERNR', '00');
@@ -184,7 +195,10 @@ class Mkacontrol extends Controller
     public function testconnection(Request $request)
     {   
 
-       
+        $s = CrmAllocationHeader::limit(1)
+        ->first();
+
+return $s->isbn;
         // $basedocnum = '260';
         // $pernr = '00001219';
         // $rsmm = '00099985';
@@ -692,7 +706,7 @@ class Mkacontrol extends Controller
         $qdashboardprojectioncount =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM')
         ->selectRaw("
-                                SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
+                                 SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
                                 SUM(CAST(t1.QTY AS INT)) as TOTALFINALPROJTN,
 
                                 SUM(CASE WHEN t1.STATUS = 'returned_isbn' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
@@ -709,7 +723,6 @@ class Mkacontrol extends Controller
                                 SUM(CASE WHEN t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_PENDINGVALUE,
                                 SUM(CASE WHEN t1.STATUS = 'saved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_SAVEDVALUE,
                                 SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS DECIMAL(18,2)) ELSE 0 END) AS TOTAL_APPROVEDVALUE
-
                 ")
         ->where('t1.BASEDOCNUM',$basedocnum)
         ->first();
@@ -822,28 +835,28 @@ class Mkacontrol extends Controller
 
 // Main Dashboard Count---------------------
 
-            $qdashboardprojectioncount =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
-            ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM')
-            ->selectRaw("
-                    SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
-                    SUM(CAST(t1.QTY AS INT)) as TOTALFINALPROJTN,
-                    SUM(CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT)) as TOTALPROJTNAMOUNT,
-                    SUM(CASE WHEN t1.DATEALLOCATED IS NULL  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS NOTYETALLOCATED,
-                    SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
-                    SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_RETURNEDAMOUNT,
-                    SUM(CASE WHEN t1.STATUS != 'approved' AND t1.STATUS != 'returned_isbn'  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
-                    SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
-                    SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
-                    SUM(CASE WHEN t1.STATUS != 'approved' AND t1.STATUS != 'returned_isbn'  THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
-                    SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
-                    SUM(CASE WHEN t2.BSA = '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_BSA,
-                    SUM(CASE WHEN t2.BSA != '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_NONBSA,
-                    SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_APPROVEDAMOUNT
-                    ")
-            ->where('t1.BASEDOCNUM',$basedocnum)
-            ->whereIn('t1.PERNR',$pernr)
-            ->first();
-            ;
+        $qdashboardprojectioncount =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+        ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM')
+        ->selectRaw("
+                SUM(CAST(t1.PROJECTION AS INT)) as TOTALPROJTN,
+                SUM(CAST(t1.QTY AS INT)) as TOTALFINALPROJTN,
+                SUM(CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT)) as TOTALPROJTNAMOUNT,
+                SUM(CASE WHEN t1.DATEALLOCATED IS NULL  THEN CAST(t1.QTY AS INT) ELSE 0 END) AS NOTYETALLOCATED,
+                SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_RETURNED,
+                SUM(CASE WHEN t1.STATUS = 'returned_isbn' AND t1.STATUS != 'approved' THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_RETURNEDAMOUNT,
+                SUM(CASE WHEN t1.STATUS != 'approved' AND t1.STATUS != 'returned_isbn' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDING,
+                SUM(CASE WHEN t1.STATUS = 'for_rsm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGRSM,
+                SUM(CASE WHEN t1.STATUS = 'for_ssm_approval' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_PENDINGSSM,
+                SUM(CASE WHEN t1.STATUS != 'approved' AND t1.STATUS != 'returned_isbn'  THEN CAST(t1.PROJECTION AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_PENDINGAMOUNT,
+                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_APPROVED,
+                SUM(CASE WHEN t2.BSA = '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_BSA,
+                SUM(CASE WHEN t2.BSA != '1' THEN CAST(t1.QTY AS INT) ELSE 0 END) AS TOTAL_NONBSA,
+                SUM(CASE WHEN t1.STATUS = 'approved' THEN CAST(t1.QTY AS INT) * CAST(t1.UNITP AS INT) ELSE 0 END) AS TOTAL_APPROVEDAMOUNT
+                ")
+        ->where('t1.BASEDOCNUM',$basedocnum)
+        ->whereIn('t1.PERNR',$pernr)
+        ->first();
+        ;
 
             $qdashboardallocated =  OPTv2Allocated::selectRaw("
                                           SUM(CAST(QTY AS INT)) as TOTALALLOCATED
@@ -899,7 +912,9 @@ class Mkacontrol extends Controller
                 // ✅ Compute percent completed (avoid divide by zero)
                 $percentCompleted = $totalfinalprojtn > 0 ? round(($completed / $totalfinalprojtn) * 100) : 0 ?? 0;
 
-                // $percentCompleted = 71;
+                if ($totalprojtnpending > 0 && $percentCompleted >= 100) {
+                    $percentCompleted = 99;
+                }   
 
                 if ($percentCompleted <= 30) {
                     $percentCompletedColor = 'bg-warning';
@@ -1343,37 +1358,49 @@ class Mkacontrol extends Controller
         $pass = $request->input("password");
         
         $user = OPTv2User::where([
-                    "USERNAME" => $username,
-                    ])
-                    ->first();
-                 
+            "USERNAME" => $username,
+            ])
+            ->first();
             
-        if($user && $pass == $user->PASSWORD) {
+    
+            if($user && $pass == $user->PASSWORD) {
 
-            $id = $user->id;
-            $pernr = $user->PERNR;
-            $rsm = $user->RSM;
-            $ssm = $user->SSM;
-            $rank = $user->RANK;
-            $aplevel = $user->APLEVEL;
-            $division = $user->DIVISION;
-
-            $request->session()->put('staff', $id);
-            $request->session()->put('user_staff', $username);
-            $request->session()->put('pernr', $pernr);
-            $request->session()->put('rsm', $rsm);
-            $request->session()->put('ssm', $ssm);
-            $request->session()->put('rank', $rank);
-            $request->session()->put('aplevel', $aplevel);
-            $request->session()->put('division', $division);
-            return redirect()->route('dashboard_admin');
-
-        } else {
-
-            $request->session()->flash('errormessage', "Wrong username or password.");
-            $request->session()->flash('classDiv', "is-invalid");
-            return back();
-        }
+                $active = $user->ACTIVE;
+    
+                if($active == '1') {
+                    $id = $user->id;
+                    $pernr = $user->PERNR;
+                    $rsm = $user->RSM;
+                    $ssm = $user->SSM;
+                    $rank = $user->RANK;
+                    $aplevel = $user->APLEVEL;
+                    $division = $user->DIVISION;
+        
+                    $request->session()->put('staff', $id);
+                    $request->session()->put('user_staff', $username);
+                    $request->session()->put('pernr', $pernr);
+                    $request->session()->put('rsm', $rsm);
+                    $request->session()->put('ssm', $ssm);
+                    $request->session()->put('rank', $rank);
+                    $request->session()->put('aplevel', $aplevel);
+                    $request->session()->put('division', $division);
+                    return redirect()->route('dashboard_admin');
+        
+    
+                } else {
+    
+                    $request->session()->flash('errormessage', "Account is disabled.");
+                    $request->session()->flash('classDiv', "is-invalid");
+                    return back();
+    
+                }
+            
+            } else {
+    
+                $request->session()->flash('errormessage', "Wrong username or password.");
+                $request->session()->flash('classDiv', "is-invalid");
+                return back();
+            }
     
     }
 
@@ -1510,12 +1537,8 @@ class Mkacontrol extends Controller
                     SUM(CAST(t1.QTY AS INT)) AS TOTALPROJTN,
                     SUM(CASE WHEN t3.BSA = 1 THEN CAST(t1.QTY AS INT) ELSE 0 END) AS BSA_QTY,
                     SUM(CASE WHEN t3.BSA = 0 THEN CAST(t1.QTY AS INT) ELSE 0 END) AS NONBSA_QTY,
-                    (
-                        SELECT TOP 1  CASE 
-                                        WHEN t2.SOHQTY > SUM(CAST(t1.QTY AS INT)) 
-                                            THEN t2.SOHQTY
-                                        ELSE t2.PROPOSEREQQTY
-                                    END
+                     (
+                        SELECT ISNULL(CAST(t2.PROPOSEREQQTY AS INT),0) + ISNULL(CAST(t2.ADJSTOCKQTY AS INT),0)
                         FROM OPTV2FINALREQ AS t2
                         WHERE t2.EAN11 = t1.EAN11
                         AND t2.BASEDOCNUM = '{$projdocnum}' AND t2.APPROVED = '1'
@@ -1525,7 +1548,11 @@ class Mkacontrol extends Controller
                 ->groupBy('t1.EAN11', 't1.USERNAME')
                 ->get();
             
-            
+            //     SELECT TOP 1  CASE 
+            //     WHEN t2.ADJSTOCKQTY > SUM(CAST(t1.QTY AS INT)) 
+            //         THEN t2.ADJSTOCKQTY 
+            //     ELSE CAST(t2.PROPOSEREQQTY AS INT) + CAST(t2.ADJSTOCKQTY AS INT)
+            // END
             // STEP 2️⃣: Collect PERNR & ISBN lists for the sales query
             $pernrList = [];
             $isbnList  = [];
@@ -1600,34 +1627,34 @@ class Mkacontrol extends Controller
                 $nonBsaQty  = (int) $projRow->NONBSA_QTY;
 
                 $bsaallocateqty = '
-                        <input class="form-control mx-0 un-cl p-1 border text-center border-primary-200 allocate_qty_bsa allocate_qty_input" data-isbn="'.$isbnCode.'" data-matnr="'.$matnr.'" data-alloctype="bsa" data-basedocnum="'.$projdocnum.'" data-pernr="'.$pernrCode.'" data-projqty="'.$bsaQty.'" max="'.$bsaQty.'" type="number" value="0" min="0">
+                        <input class="form-control mx-0 p-1 border text-center border-primary-200 allocate_qty_bsa allocate_qty_input" data-isbn="'.$isbnCode.'" data-matnr="'.$matnr.'" data-alloctype="bsa" data-basedocnum="'.$projdocnum.'" data-pernr="'.$pernrCode.'" data-projqty="'.$bsaQty.'" max="'.$bsaQty.'" type="number" value="0" min="0">
                                
                 ';
                 $nonbsaallocateqty = '
-                        <input class="form-control mx-1 un-cl p-1 border text-center border-primary-200 allocate_qty_nonbsa allocate_qty_input" data-isbn="'.$isbnCode.'" data-matnr="'.$matnr.'" data-alloctype="nonbsa" data-basedocnum="'.$projdocnum.'" data-pernr="'.$pernrCode.'" data-projqty="'.$nonBsaQty.'" max="'.$nonBsaQty.'" type="number" value="0" min="0">
+                        <input class="form-control mx-1 p-1 border text-center border-primary-200 allocate_qty_nonbsa allocate_qty_input" data-isbn="'.$isbnCode.'" data-matnr="'.$matnr.'" data-alloctype="nonbsa" data-basedocnum="'.$projdocnum.'" data-pernr="'.$pernrCode.'" data-projqty="'.$nonBsaQty.'" max="'.$nonBsaQty.'" type="number" value="0" min="0">
                 ';
             
                 
-                if($proposedreqqty > 0 ) {
-                    $response[] = array (
-                        "isbn" => $isbnCode,
-                        "description" => $description,
-                        "pernrname" => $pernrName,
-                        "pernr" => $pernrCode,
-                        "bsaqty" => $projRow->BSA_QTY,
-                        "nonbsaqty" => $projRow->NONBSA_QTY,
-                        "bsaallocateqty" => $bsaallocateqty,
-                        "nonbsaallocateqty" => $nonbsaallocateqty,
-                        "proposereq" => $proposedreqqty ?? 0,
-                        "proposereq" => $proposedreqqty ?? 0,
-                        "total_1" => $salesYear1,
-                        "total_2" => $salesYear2,
-                        "total_3" => $salesYear3,
-                    );
-                    
-                }
+                // if($proposedreqqty > 0 ) {
              
-                
+                    
+                // }
+             
+                $response[] = array (
+                    "isbn" => $isbnCode,
+                    "description" => $description,
+                    "pernrname" => $pernrName,
+                    "pernr" => $pernrCode,
+                    "bsaqty" => $projRow->BSA_QTY,
+                    "nonbsaqty" => $projRow->NONBSA_QTY,
+                    "bsaallocateqty" => $bsaallocateqty,
+                    "nonbsaallocateqty" => $nonbsaallocateqty,
+                    "proposereq" => $proposedreqqty ?? 0,
+                    "proposereq" => $proposedreqqty ?? 0,
+                    "total_1" => $salesYear1,
+                    "total_2" => $salesYear2,
+                    "total_3" => $salesYear3,
+                );
            
             }
             
@@ -1978,6 +2005,10 @@ class Mkacontrol extends Controller
                     $alloctype = $c->ALLOCTYPE;
                     $approved1 = $c->APPROVED1;
                     $approved = $c->APPROVED;
+                    $cancel = $c->CANCEL;
+                    $datedisapproved = $c->DATEDISAPPROVED;
+                    $disapporvedby = $c->DISAPPROVEDBY;
+                    $remarksdisapproved = $c->REMARKSDISAPPROVED;
                     $tobranchwhouse = $c->BRANCHWHOUSE;
                     $status = $c->STATUS;
                     $submit = $c->SUBMIT;
@@ -2004,7 +2035,7 @@ class Mkacontrol extends Controller
                                                             Remove</a>
                                                     ';
                     }
-                    else if(is_null($approved)) {
+                    else if(is_null($approved) && is_null($cancel)) {
                           $action .= '
                                 <a href="#" class="dropdown-item text-danger cancel-btn-allocreqd-isbn" data-docnum="'.$docnum.'" data-id="'.$id.'">
                                                 Cancel</a>
@@ -2016,11 +2047,20 @@ class Mkacontrol extends Controller
                                 </div>";
 
                     $addtltext = '';
-
+                    $addtitle = '';
                     if($approved == '1') {
                         $addtltext =  ': ' . $qty;
                     }
-                    $statusDisplay = status_display($status,'badge','0.7', $addtltext);
+
+        
+                    if(!is_null($remarksdisapproved)) {
+
+                      $addtitle = formatDate($datedisapproved,'mdy') . ' &nbsp ' . $disapporvedby . ': ' . $remarksdisapproved   ;
+
+                    }
+                 
+                    $statusDisplay = status_display($status,'badge','0.7', $addtltext,$addtitle);
+    
     
                         //select type only
                     $activeWarehouses = activeWarehouses();
@@ -2155,7 +2195,7 @@ class Mkacontrol extends Controller
 
         } else {
 
-            if ($qcheck->SUBMIT !== '1') {
+            // if ($qcheck->SUBMIT !== '1') {
 
                 $rows = (clone $baseQuery)
                     ->select('t1.id','t1.PERNR','t1.EAN11','t1.QTY')
@@ -2173,7 +2213,7 @@ class Mkacontrol extends Controller
 
                 }
 
-                // (clone $baseQuery)->update([
+                     // (clone $baseQuery)->update([
                 //          "QTY" => '0',
                 //         "PROJECTION" => '0',
                 //         "LINETOTAL" => '0', 
@@ -2182,11 +2222,11 @@ class Mkacontrol extends Controller
 
                 $status = 2;
 
-            } else {
+            // } else {
 
-                $status = 403;
+            //     $status = 403;
 
-            }
+            // }
 
         }
 
@@ -2282,20 +2322,22 @@ class Mkacontrol extends Controller
                 $soh = $c->SOHQTY ?? 0;
                 $pullouttransit = $c->PULLOUTQTY ?? 0;
                 $onorderoms =  $c->OMSQTY ?? 0;
-                $onpo = 0;
+                $onpo = $c->ONPOQTY ?? 0;
                 $bufferstock = round(($totalproj * 0.05));
                 $adjstock = round($soh + $pullouttransit - $onorderoms + $onpo - $bufferstock);
                 $requireqty = $adjstock - $totalproj;
                 $roundreqqty =  $requireqty < 0 ? 0 :round($requireqty, -1) ?? 0; // -1 is nearest 20 
                 $propreqval = $c->PROPOSEREQQTY ?? $roundreqqty;
-                $descriptionDisplay = '<span class="" title="'.$description.'"> '.$descriptiontruncate.' </span>';
+                $descriptionDisplay = '<span class="line-clamp-1" title="'.$description.'"> '.$description.' </span>';
                 $proprequireqty = $propreqval; 
 
                 $checkisbn = '
                     <div class="d-flex justify-content-center">
                             <input class="form-check-input for_approval_finalreq_isbn_approve_check" data-isbn="'.$isbn.'" data-basedocnum="'.$basedocnum.'" type="checkbox" value="">
                     </div>';
-                $totalprojDisplay = '<a href="#" data-isbn="'.$isbn.'">'.$totalproj.'</a>';
+                $totalprojDisplay = '<a href="javascript:void(0)" class="titleprojectionaelist" data-totalprojtn="'.$totalproj.'" data-title="'.$description.'" data-basedocnum="'.$basedocnum.'" data-isbn="'.$isbn.'">'.$totalproj.'</a>';
+
+      
 
                 $response[] = array(
                     "num" => $num,
@@ -2312,12 +2354,227 @@ class Mkacontrol extends Controller
                     "proprequireqty" => $proprequireqty,
                     "propreqval" => $propreqval,
                     "checkisbn" => $checkisbn,
+                    "allocated" => 0,
+                    "action" => '',
                 );
 
         }
+        $qallocated =  OPTv2Allocated::selectRaw("
+                MAX(EAN11) as EAN11,
+                SUM(CAST(ALLOCATED AS INT)) as TOTALALLOCATED
+            ")
+            ->where('BASEDOCNUM',$basedocnum)
+            ->groupBy('EAN11')
+            ->get();
+
+        if(!$qallocated->isEmpty()) {
+
+            $allocatedISBNLogs = [];
+
+            foreach($qallocated as $al) {
+
+            $allocatedISBNLogs[$al->EAN11]['TOTALALLOCATED'] = $al->TOTALALLOCATED ?? 0; 
+
+            }
+
         }
 
+        
+        foreach($response as &$res) {
+
+            $isbn = $res['isbn'];
+            $allocated = isset($allocatedISBNLogs[$isbn]['TOTALALLOCATED']) ? $allocatedISBNLogs[$isbn]['TOTALALLOCATED'] : 0; 
+        
+
+                    
+            $action = '<div class="font-sans-serif btn-reveal-trigger position-static">
+            <button class="btn btn-sm border p-1  dropdown-toggle dropdown-caret-none transition-none btn-reveal fs--2" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-haspopup="true" aria-expanded="false" data-bs-reference="parent"><span class="fas fa-ellipsis-h fs--2"></span></button>
+                <div class="dropdown-menu dropdown-menu-end py-2">';
+
+                    $action .= '
+                    <a href="javascript:void(0)" class="dropdown-item text-primary refloat_approved_isbn" data-basedocnum="'.$basedocnum.'" data-allocated="'.$allocated.'" data-isbn="'.$isbn.'" >
+                                    Return to Projection Summary</a>
+                            ';
+            $action .= "
+                                </div>
+                        </div>";
+
+            $res['action'] = $action;
+            $res['allocated'] = $allocated;
+
+        }
+
+        unset($res);
+
+    }
+
     
+        return response()->json($response);
+
+    }
+
+    public function datatable_changeisbn_projection_list(Request $request) {
+
+        $pernr = session('pernr');
+        $basedocnum = $request->query('basedocnum');
+        $date_now_full = date_now();
+        $num = 0;
+        $qchangeisbnprojectionlist = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+                                            ->select(
+                                                "TEMPEAN11",
+                                                DB::raw("MAX(DESCRIPTION) as DESCRIPTION"),
+                                                DB::raw("MAX(EAN11) as EAN11"),
+                                                DB::raw("SUM(CAST(QTY AS INT)) as TOTALPROJTN")
+                                                 )
+                                            ->where('BASEDOCNUM',$basedocnum)
+                                            ->whereNotNull('t1.APPROVED')
+                                            ->groupBy('TEMPEAN11')
+                                            ->orderBy('DESCRIPTION','ASC')
+                                            ->get();
+
+            if($qchangeisbnprojectionlist->isEmpty()){
+                $response = [
+                    "num" => "0",
+                ];
+            }
+            else {
+    
+                foreach($qchangeisbnprojectionlist as $c) {
+                    
+                    $num++;
+                
+                    $isbn = $c->EAN11;
+                    $tempisbn = $c->TEMPEAN11;
+    
+                    $isbnlist[] = $isbn;
+                    
+                    $description = $c->DESCRIPTION;
+            
+                    $totalproj = $c->TOTALPROJTN;
+                 
+                    $descriptionDisplay = '<span class="line-clamp-1" title="'.$description.'"> '.$description.' </span>';
+                
+                    $totalprojDisplay = '<a href="javascript:void(0)" class="titleprojectionaelist" data-totalprojtn="'.$totalproj.'" data-title="'.$description.'" data-basedocnum="'.$basedocnum.'" data-isbn="'.$tempisbn.'">'.$totalproj.'</a>';
+
+                    $action = '<div class="font-sans-serif btn-reveal-trigger position-static">
+                    <button class="btn btn-sm border p-1  dropdown-toggle dropdown-caret-none transition-none btn-reveal fs--2" type="button" data-bs-toggle="dropdown" data-boundary="window" aria-haspopup="true" aria-expanded="false" data-bs-reference="parent"><span class="fas fa-ellipsis-h fs--2"></span></button>
+                        <div class="dropdown-menu dropdown-menu-end py-2">';
+
+                            $action .= '
+                            <a href="javascript:void(0)" class="dropdown-item text-primary changeisbn_btn" data-existing="'.$tempisbn.'" >
+                                            Change</a>
+                                    ';
+                    $action .= "
+                                        </div>
+                                </div>";
+                    $response[] = array(
+                        "num" => $num,
+                        "isbn" => '',
+                        "tempisbn" => $tempisbn,
+                        "totalprojtn" => $totalprojDisplay,
+                        "description" => $descriptionDisplay,
+                        "descriptionval" => $description,
+                        "totalproj" => $totalprojDisplay,
+                        "action" => $action,
+                        "changeto" => '',
+                        "allocated" => 0,
+                        "dateupdate" => '',
+                    );
+    
+                }
+                
+                $qupdatelogs = OPTv2Logs::from('OPTV2LOGS as l')
+                ->join(
+                    DB::raw('(
+                        SELECT REFERENCE, MAX(id) as max_id
+                        FROM OPTV2LOGS
+                        WHERE BASEDOCNUM = '.$basedocnum.'
+                        GROUP BY REFERENCE
+                    ) as x'),
+                    'l.id',
+                    '=',
+                    'x.max_id'
+                )
+                ->where('LOGTYPE','changeisbn')
+                ->select([
+                    'l.REFERENCE',
+                    'l.REMARKS as NEWISBN',
+                    'l.updated_at'
+                ])
+                ->get();
+
+                if(!$qupdatelogs->isEmpty()) {
+
+                    //get updated-----
+                    
+                    $changeISBNLogs = [];
+                    foreach($qupdatelogs as $u) {
+
+                        $changeISBNLogs[$u->REFERENCE]['newisbn'] = $u->NEWISBN; //remarks is new isbn
+                        $changeISBNLogs[$u->REFERENCE]['updated_at'] = $u->updated_at; //remarks is new isbn
+
+
+                    }
+                    foreach($response as &$res) {
+                            $changeto = $changeISBNLogs[$res['tempisbn']]['newisbn'] ?? ''; 
+                            $updated_at= $changeISBNLogs[$res['tempisbn']]['updated_at'] ?? '';
+            
+                            $dateupdate = !empty($updated_at) ? formatDate($updated_at,'mdyts') : '';
+            
+                            $dateupdateDisplay ="<span class='fs--2'>".$dateupdate."</span>";
+
+                            $res['changeto'] = $changeto;
+                            $res['dateupdate'] = $dateupdateDisplay;
+            
+                    }
+                    
+                    unset($res);
+
+                }
+
+                $qallocated =  OPTv2Allocated::selectRaw("
+                                    MAX(EAN11) as EAN11,
+                                    SUM(CAST(ALLOCATED AS INT)) as TOTALALLOCATED
+                                ")
+                                ->where('BASEDOCNUM',$basedocnum)
+                                ->groupBy('EAN11')
+                                ->get();
+
+                if(!$qallocated->isEmpty()) {
+
+                    $allocatedISBNLogs = [];
+
+                    foreach($qallocated as $al) {
+
+                        $allocatedISBNLogs[$al->EAN11]['TOTALALLOCATED'] = $al->TOTALALLOCATED ?? 0; 
+
+                    }
+
+                    foreach($response as &$res) {
+
+                        $isbn = $res['tempisbn'];
+                            $allocated = isset($allocatedISBNLogs[$isbn]['TOTALALLOCATED']) ? $allocatedISBNLogs[$isbn]['TOTALALLOCATED'] : 0; 
+                            $totalallocatedDisplay = '<a ref="" title="Show Summary" class="showbsoallocationbtn" data-isbn="'.$isbn.'" data-basedocnum="'.$basedocnum.'">' . ($allocated)  . '</a> ';
+           
+                            if($allocated == '0') {
+                                $totalallocatedDisplay = 0;
+                            }
+
+                            $res['allocated'] = $totalallocatedDisplay;
+            
+                    }
+                    
+                    unset($res);
+
+                }
+            
+
+            }
+
+        
+          
+
+            
         return response()->json($response);
 
     }
@@ -2325,6 +2582,7 @@ class Mkacontrol extends Controller
     public function datatable_projsummary_finalreq_list(Request $request) {
 
         $pernr = session('pernr');
+        $staff = session('user_staff');
         $basedocnum = $request->query('basedocnum');
         $date_now_full = date_now();
         $qprojectionPeriodDetails = projection_period_details($basedocnum);
@@ -2412,7 +2670,7 @@ class Mkacontrol extends Controller
             }
 
 //better performance to get data per isbn??
-            $omsData = get_omstransact_isbn($isbnlist);
+            $omsData = get_omstransact_isbn($isbnlist,$basedocnum);
             $pulloutData = get_pullout_isbn($isbnlist);
             $sohData = get_soh_isbn($isbnlist);
             $onpoData = get_onpo_isbn($isbnlist);
@@ -2499,19 +2757,54 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
 
                 $adjstockDisplay  = '<span class="adstockinsertedisbntext">' . $adjstock . '</span>';
                 $requireqtyDisplay = '<span class="requireqtyinsertedisbntext">' . $requireqty . '</span>';
+
+                $isbnFinal = $isbn;
+                $proposedreqqty = $propreqval;
+
+                OPTV2FinalReq::firstOrCreate(
+                    [
+                        'EAN11' => $isbnFinal,
+                        'BASEDOCNUM' => $basedocnum,
+                    ],
+                    [
+                        "TEMPEAN11"              => $isbnFinal,
+                        "DESCRIPTION"            => $description,
+                        "PROPOSEREQQTY"          => $proposedreqqty,
+                        "REQUIREQTY"             => $requireqty,
+                        "TOTALPROJQTY"           => $totalproj,
+                        "SOHQTY"                 => $soh,
+                        "APPROVED"               => '0',
+                        "DATEAPPROVED"           => null,
+                        "APPROVEDBYUSERNAME"     => null,
+                        "USERCREATE"             => $staff,
+                        "STATUS"                 => 'for_approval',
+                        "created_at"             => $date_now_full,
+                        "updated_at"             => $date_now_full,
+                        "SAVED"                  => '1',
+                        "PROJECTIONID"           => $projectionid,
+                        "PULLOUTQTY"             => $pullouttransit,
+                        "OMSQTY"                 => $onorderoms,
+                        "ONPOQTY"                => $onpo,
+                        "BUFFSTOCKQTY"           => $bufferstock,
+                        "ADJSTOCKQTY"            => $adjstock,
+                    ]
+                );
+
+
                 // update response
-                $res['soh'] = $sohFinal;
-                $res['pullouttransit'] = $pullouttransit;
-                $res['onpo'] = $onpo;
-                $res['onorderoms'] = $onorderoms;
-                $res['bufferstock'] = $bufferstock;
-                $res['adjstock'] = $adjstockDisplay;
-                $res['requireqty'] = $requireqtyDisplay;
-                $res['propreqval'] = $propreqval;
-                $res['proprequireqty'] = $proprequireqty;
-                $res['total_1'] = $saleshistorytotal_1;
-                $res['total_2'] = $saleshistorytotal_2;
-                $res['total_3'] = $saleshistorytotal_3;
+                
+                // $res['soh'] = $sohFinal;
+                // $res['pullouttransit'] = $pullouttransit;
+                // $res['onpo'] = $onpo;
+                // $res['onorderoms'] = $onorderoms;
+                // $res['bufferstock'] = $bufferstock;
+                // $res['adjstock'] = $adjstockDisplay;
+                // $res['requireqty'] = $requireqtyDisplay;
+                // $res['propreqval'] = $propreqval;
+                // $res['proprequireqty'] = $proprequireqty;
+                // $res['total_1'] = $saleshistorytotal_1;
+                // $res['total_2'] = $saleshistorytotal_2;
+                // $res['total_3'] = $saleshistorytotal_3;
 
 
             }
@@ -2529,17 +2822,17 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
             //     }
             // }
 
-                $insertApproveFinalReq =
-                            OPTV2FinalReq::upsert(
-                                $insertApproveFinalReqISBNList,
-                                ['EAN11', 'BASEDOCNUM'],
-                                [
-                                    'TEMPEAN11','DESCRIPTION', 'PROPOSEREQQTY', 'REQUIREQTY', 'TOTALPROJQTY', 'SOHQTY',
-                                    'APPROVED', 'DATEAPPROVED', 'APPROVEDBYUSERNAME', 'USERCREATE',
-                                    'STATUS', 'created_at', 'updated_at', 'SAVED', 'PROJECTIONID',
-                                    'PULLOUTQTY', 'OMSQTY', 'ONPOQTY', 'BUFFSTOCKQTY', 'ADJSTOCKQTY'
-                                ]
-                            );
+                // $insertApproveFinalReq =
+                //             OPTV2FinalReq::upsert(
+                //                 $insertApproveFinalReqISBNList,
+                //                 ['EAN11', 'BASEDOCNUM'],
+                //                 [
+                //                     'TEMPEAN11','DESCRIPTION', 'PROPOSEREQQTY', 'REQUIREQTY', 'TOTALPROJQTY', 'SOHQTY',
+                //                     'APPROVED', 'DATEAPPROVED', 'APPROVEDBYUSERNAME', 'USERCREATE',
+                //                     'STATUS', 'created_at', 'updated_at', 'SAVED', 'PROJECTIONID',
+                //                     'PULLOUTQTY', 'OMSQTY', 'ONPOQTY', 'BUFFSTOCKQTY', 'ADJSTOCKQTY'
+                //                 ]
+                //             );
 
         }
 
@@ -2629,12 +2922,12 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
         $basedocnum = $request->query('basedocnum');
         $filter = $request->query('filter');
       
-        $notapprovedfinalreqisbn =  OPTv2FinalReq::where('BASEDOCNUM',$basedocnum)
-                                            ->where('APPROVED','!=','1')
-                                            ->orderBy('id','DESC')
-                                            // ->get();
-                                            ->pluck('EAN11')
-                                            ->toArray();
+        // $notapprovedfinalreqisbn =  OPTv2FinalReq::where('BASEDOCNUM',$basedocnum)
+        //                                     ->where('APPROVED','!=','1')
+        //                                     ->orderBy('id','DESC')
+        //                                     // ->get();
+        //                                     ->pluck('EAN11')
+        //                                     ->toArray();
     
         $num = 0;
         
@@ -2647,7 +2940,14 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
                                                 DB::raw("(SELECT TOP 1 BUFFSTOCKQTY FROM OPTV2FINALREQ t2 WHERE t2.EAN11 = t1.EAN11 AND t2.BASEDOCNUM = '".$basedocnum."' ) as BUFFSTOCKQTY")
                                                 )
                                             ->where('BASEDOCNUM',$basedocnum)
-                                            ->whereIn('EAN11',$notapprovedfinalreqisbn)
+                                            ->whereExists(function ($query) use ($basedocnum) {
+                                                $query->select(DB::raw(1))
+                                                    ->from('OPTV2FINALREQ as f')
+                                                    ->whereColumn('f.EAN11', 't1.EAN11')
+                                                    ->where('f.BASEDOCNUM', $basedocnum)
+                                                    ->where('f.APPROVED', '!=', '1');
+                                            })
+                                            // ->whereIn('EAN11',$notapprovedfinalreqisbn)
                                             // ->whereNotNull('t1.APPROVED')
                                             ->groupBy('EAN11')
                                             ->orderBy('DESCRIPTION','ASC')
@@ -2699,7 +2999,7 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
                     <div class="d-flex justify-content-center">
                             <input class="form-check-input for_approval_finalreq_isbn_approve_check" data-isbn="'.$isbn.'" data-basedocnum="'.$basedocnum.'" type="checkbox" value="">
                     </div>';
-                $totalprojDisplay = '<a href="#" class="titleprojectionaelist" data-totalprojtn="'.$totalproj.'" data-title="'.$description.'" data-basedocnum="'.$basedocnum.'" data-isbn="'.$isbn.'">'.$totalproj.'</a>';
+                $totalprojDisplay = '<a href="javascript:void(0)" class="titleprojectionaelist" data-totalprojtn="'.$totalproj.'" data-title="'.$description.'" data-basedocnum="'.$basedocnum.'" data-isbn="'.$isbn.'">'.$totalproj.'</a>';
 
                 $response[] = array(
                     "num" => $num,
@@ -2728,10 +3028,11 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
             }
 
             //better performance to get data per isbn??
-            $omsData = get_omstransact_isbn($isbnlist);
+            $omsData = get_omstransact_isbn($isbnlist,$basedocnum);
             $pulloutData = get_pullout_isbn($isbnlist);
             $sohData = get_soh_isbn($isbnlist);
             $onpoData = get_onpo_isbn($isbnlist);
+            $misopenpoData =  get_misopenpo();
             $allocatedData = getAllocatedMainProjectionDeductSOH ($basedocnum,$isbnlist);
 
             $allocatedMap = [];
@@ -2755,8 +3056,11 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
                 $sohMap[$row->EAN11] = round($row->SOHQTY) ?? 0;
             }
             $onpoMap = [];
-            foreach ($onpoData as $d4) {
-                $onpoMap[$d4->EAN11] = round($d4->ONPOQTY) ?? 0;
+            // foreach ($onpoData as $d4) {
+            //     $onpoMap[$d4->EAN11] = round($d4->ONPOQTY) ?? 0;
+            // }
+            foreach ($misopenpoData as $isbn => $qty) {
+                $onpoMap[$isbn] = round($qty) ?? 0;
             }
 //------------------------
 
@@ -2954,11 +3258,11 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
  //---------------
 
                 $bsaallocateqty = '
-                      <input class="form-control mx-0  p-1 border text-center border-primary-300 allocate_qty_bsa allocate_qty_input" data-isbn="'.$isbn.'" data-alloctype="bsa" data-basedocnum="'.$basedocnum.'" data-pernr="'.$aepernr.'" data-projqty="'.$bsa.'" max="'.$bsa.'" type="number" value="0" min="0">
+                      <input class="form-control  p-1 border text-center border-primary-300 allocate_qty_bsa allocate_qty_input" data-isbn="'.$isbn.'" data-alloctype="bsa" data-basedocnum="'.$basedocnum.'" data-pernr="'.$aepernr.'" data-projqty="'.$bsa.'" max="'.$bsa.'" type="number" value="0" min="0">
                                      
                 ';
                 $nonbsaallocateqty = '
-                      <input class="form-control mx-1  p-1 border text-center border-primary-300 allocate_qty_nonbsa allocate_qty_input" data-isbn="'.$isbn.'" data-alloctype="nonbsa" data-basedocnum="'.$basedocnum.'" data-pernr="'.$aepernr.'" data-projqty="'.$nonbsa.'" max="'.$nonbsa.'" type="number" value="0" min="0">
+                      <input class="form-control  p-1 border text-center border-primary-300 allocate_qty_nonbsa allocate_qty_input" data-isbn="'.$isbn.'" data-alloctype="nonbsa" data-basedocnum="'.$basedocnum.'" data-pernr="'.$aepernr.'" data-projqty="'.$nonbsa.'" max="'.$nonbsa.'" type="number" value="0" min="0">
                 ';
 
                 $usernameDisplay = '
@@ -3030,12 +3334,38 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
                                             ->pluck('EAN11')
                                             ->toArray();
 
-        $qisbnstockallocation =   OPTv2FinalReq::where('BASEDOCNUM',$basedocnum)
-                                            ->where('APPROVED','1')
-                                            ->whereIn('EAN11',$notallocatedapprovedprojectiond)
-                                            ->whereNotIn('EAN11',$alreadyallocatedisbn)
-                                            ->orderBy('id','DESC')
-                                            ->get();
+        // $qisbnstockallocation =   OPTv2FinalReq::where('BASEDOCNUM',$basedocnum)
+        //                                     ->where('APPROVED','1')
+        //                                     ->whereIn('EAN11',$notallocatedapprovedprojectiond)
+        //                                     ->whereNotIn('EAN11',$alreadyallocatedisbn)
+        //                                     ->orderBy('id','DESC')
+        //                                     ->get();
+
+        $qisbnstockallocation = OPTv2FinalReq::from('OPTV2FINALREQ as fr')
+                                    ->where('fr.BASEDOCNUM', $basedocnum)
+                                    ->where('fr.APPROVED', '1')
+
+                                    // dapat may projectiond record na approved at hindi pa dateallocated
+                                    ->whereExists(function ($query) use ($basedocnum) {
+                                        $query->select(DB::raw(1))
+                                            ->from('OPTV2PROJECTIOND as pd')
+                                            ->whereColumn('pd.EAN11', 'fr.EAN11')
+                                            ->where('pd.BASEDOCNUM', $basedocnum)
+                                            ->whereNotNull('pd.APPROVED')
+                                            ->whereNull('pd.DATEALLOCATED');
+                                    })
+
+                                    // at wala pang allocated record
+                                    ->whereNotExists(function ($query) use ($basedocnum) {
+                                        $query->select(DB::raw(1))
+                                            ->from('OPTV2ALLOCATED as al')
+                                            ->whereColumn('al.EAN11', 'fr.EAN11')
+                                            ->where('al.BASEDOCNUM', $basedocnum);
+                                    })
+
+                                    ->orderBy('fr.id', 'DESC')
+                                    ->get();
+                                    
         if($qisbnstockallocation->isEmpty()){
             $response = [
                 "num" => "0",
@@ -3092,11 +3422,12 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
 
                 $checkbox = '
                     <div class="d-flex justify-content-center">
-                            <input class="form-check-input stockallocateisbn" data-isbn="'.$isbn.'" checked data-basedocnum="'.$basedocnum.'" type="checkbox" value="">
+                            <input class="form-check-input stockallocateisbn" data-isbn="'.$isbn.'" data-basedocnum="'.$basedocnum.'" type="checkbox" value="">
                     </div>
                 ';
 
-                $countaeDisplay = '<a href="#" class="titleprojectionaelist" data-totalprojtn="'.$totalproj.'" data-title="'.$description.'" data-basedocnum="'.$basedocnum.'" data-isbn="'.$isbn.'">'.$countae.'</a>';
+                $countaeDisplay = '<a href="javascript:void(0)" class="titleprojectionaelist" data-totalprojtn="'.$totalproj.'" data-title="'.$description.'" data-basedocnum="'.$basedocnum.'" data-isbn="'.$isbn.'">'.$countae.'</a>';
+                $totalprojDisplay = '<a href="javascript:void(0)" class="titleprojectionaelist" data-totalprojtn="'.$totalproj.'" data-title="'.$description.'" data-basedocnum="'.$basedocnum.'" data-isbn="'.$isbn.'">'.$totalproj.'</a>';
 
 
                 $response[] = array(
@@ -3105,7 +3436,7 @@ foreach ($isbnPrev3YearSalesHistory as $salesData) {
                     "description" => $descriptionDisplay,
                     "author" => $authorDisplay,
                     "countae" => $countaeDisplay,
-                    "totalproj" => $totalproj,
+                    "totalproj" => $totalprojDisplay,
                     "proprequireqty" => $proprequireqty,
                     "propreqval" => $propreqval,
                     "action" => $action,
@@ -3390,9 +3721,17 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
     $basedocnum = $request->query('basedocnum');
     $pernrurl = $request->query('pernr');
 
+    $thisyear = getPreviousYear(0);
+
     if($pernrurl == '1') {
 
-        $pernr = filter_user_list()->pluck('PERNR')->toArray();;
+         $qpernr = filter_user_list()->get()
+           // ->pluck('PERNR')->toArray();
+                    ;
+
+        foreach($qpernr as $q) {
+                $pernr[] = trim($q->PERNR);
+        }
 
     } else {
         $pernr[] = $pernrurl;
@@ -3435,6 +3774,9 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
             
             $allocatedisbn[] = $isbn;
          
+            $totalallocatedDisplay = '<a ref="" title="Show Summary" class="dashboardbsoallocationbtn" data-isbn="'.$isbn.'" data-basedocnum="'.$basedocnum.'">' . $totalallocated  . '</a> ';
+           
+
             $response [] = [
                 "num" => $num,
                 "isbn" => $isbn,
@@ -3451,7 +3793,7 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
                 "totalprojtndat" => $totalprojtn,
                 "totalallocateddat" => $totalallocated,
                 "totalprojtn" => number_format($totalprojtn),
-                "totalallocated" => number_format($totalallocated),
+                "totalallocated" => $totalallocatedDisplay,
 
             ];
 
@@ -3514,6 +3856,16 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
         $dballocOutMap[$d2->EAN11] = $d2->TOTALQTYREQOUT;
     }
 //---------alloc req out
+
+//ordered
+$qOrdered = get_year_omstransact_isbn($pernr,$basedocnum);
+
+$dorderedMap = [];
+foreach ($qOrdered as $d3) {
+    $dorderedMap[$d3->EAN11] = $d3->OMSQTY;
+}
+//---------ordered
+
 // dd($dballocInMap);
 
     foreach($response as &$res){
@@ -3521,11 +3873,15 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
         $isbn = $res['isbn'];
         $allocated = $res['totalallocateddat'];
         $projtn = $res['totalprojtndat'];
-
+        $title = isset($descMap['desctext'][$res['isbn']]) 
+            ? $descMap['desctext'][$res['isbn']] 
+            : '';
         $allocrate = 0;
         $allocin = $dballocInMap[$isbn] ?? 0;
         $allocout =  $dballocOutMap[$isbn] ?? 0;
-        $ordered =   0;
+        // $ordered =   0;
+        $ordered =   $dorderedMap[$isbn] ?? 0;
+        $orderedDisplay = number_format($ordered);
         $allocrate = ($projtn > 0)
                 ? round(($allocated / $projtn) * 100)
                 : 0;
@@ -3547,6 +3903,8 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
 
        $totalbalancedbnonbsa = $res['totalbalancedbnonbsa'];
        $totalbalancedbbsa = $res['totalbalancedbbsa'];
+       $desctext = isset($descMap['desctext'][ $res['isbn']]) ? $descMap['desctext'][ $res['isbn']] : '';
+       $descdisplay = isset($descMap['descdisplay'][ $res['isbn']]) ?$descMap['descdisplay'][ $res['isbn']] : '';
        $alloctypeBalance = '
        <b>'.$isbn.'
        </b>
@@ -3557,7 +3915,7 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
          
         $allocbalDisplay = '<a href="#" class="" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true"  title="'.$alloctypeBalance.'" data-totalbalance="'.$res['allocbaldb'].'">'.$allocbal.'</a>';
         
-        $totalprojtnDisplay = '<a href="#" class="dashboardisbnprojtncustomerlist" title="Customer List"  data-totalprojtn="'.$projtn.'" data-isbn="'.$isbn.'" data-title="'.$descMap['desctext'][ $res['isbn']].'" data-basedocnum="'.$basedocnum.'" >'.$projtn.'</a>';
+        $totalprojtnDisplay = '<a href="#" class="dashboardisbnprojtncustomerlist" title="Customer List"  data-totalprojtn="'.$projtn.'" data-isbn="'.$isbn.'" data-title="'.$desctext.'" data-basedocnum="'.$basedocnum.'" >'.$projtn.'</a>';
          
         $allocrateDisplay = '<span class="'.$allocRateColor.'">'.$allocrate.'%</span>';
         $res['num'] = $num;
@@ -3565,10 +3923,10 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
         $res['allocrate'] = $allocrateDisplay;
         $res['alloctransferin'] =  $allocin;
         $res['alloctransferout'] = $allocout;
-        $res['ordered'] = $ordered;
-        $res['descriptiontext'] = $descMap['desctext'][ $res['isbn']];
-        $res['description'] = $descMap['descdisplay'][ $res['isbn']];
-
+        $res['ordered'] = $orderedDisplay;
+        $res['descriptiontext'] = $desctext;
+        $res['description'] = $descdisplay;
+        
         $res['allocbal'] = $allocbalDisplay;
 
         
@@ -3592,105 +3950,154 @@ public function datatable_dashboard_allocationsummary_list (Request $request) {
 
 }
 
-public function approvals_count(Request $request) {
+public function approvals_count(Request $request)
+{
+    $pernr = trim(session('pernr'));
+    $rank = trim(session('rank'));
 
-            $pernr = trim(session('pernr'));
-            $rank = trim(session('rank'));
-            $filterPernr = filter_user_list('0','1')->get();
-            $arrayFilterPernr = $filterPernr->pluck('PERNR')->toArray();
-
-            /** -----------------------
-             *  Query 1: PROJECTION
-             * ---------------------- */
-            $projectionQ = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
-                ->selectRaw("t1.USERNAME")
-                ->where('t1.SUBMIT', '1')
-                ->whereNull('t1.APPROVED')
-                ->whereIn('t1.PERNR', $arrayFilterPernr)
-                ->groupBy('t1.USERNAME', 't1.BASEDOCNUM')
-                
-                ;
-
-            // if (strpos($rank, 'RSM') !== false) {
-            //     $projectionQ->whereNull('t1.APPROVED1');
-            // }
-            // if (strpos($rank, 'SSM') !== false) {
-            //     $projectionQ->whereNotNull('t1.APPROVED1')
-            //                 ->whereNull('t1.APPROVED2');
-            // }
-
-            $this->applyRankApprovalFilter($projectionQ,$rank);
-       
-
-            $_projectionQ = $projectionQ->get();
-            $cntProjection = (int) ($_projectionQ->count() ?? 0);
-
-            /** -----------------------
-             *  Query 2: ALLOCATION REQ
-             * ---------------------- */
-            $allocInQ = OPTv2AllocReqd::from('OPTV2ALLOCREQD as t1')
-                ->leftJoin('OPTV2ALLOCREQH as t2', 't1.DOCNUM', '=', 't2.DOCNUM')
-                ->leftJoin('OPTV2PROJECTIONPERIOD as t3', 't2.BASEDOCNUM', '=', 't3.DOCNUM')
-                ->selectRaw("t1.STATUS")
-                ->whereIn('t1.PERNR', $arrayFilterPernr)
-                ->whereNull('t1.CANCEL')
-                ->whereNotNull('t1.SUBMIT')
-                ;
-
-            $this->applyRankApprovalFilter($allocInQ,$rank);
+    $filterPernr = filter_user_list('0', '1')->get();
+    $arrayFilterPernr = $filterPernr->pluck('PERNR')->toArray();
 
 
+    /** -----------------------
+     *  Query 1: PROJECTION
+     * ---------------------- */
+    $projectionQ = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+        ->selectRaw("
+            t1.USERNAME,
+            t1.BASEDOCNUM
+        ")
+        ->where('t1.SUBMIT', '1')
+        ->whereNull('t1.APPROVED')
+        ->whereIn('t1.PERNR', $arrayFilterPernr)
+        ->groupBy(
+            't1.USERNAME',
+            't1.BASEDOCNUM'
+        );
 
-            $cntAllocIn = (int) ($allocInQ->get()->count() ?? 0);
+    $this->applyRankApprovalFilter(
+        $projectionQ,
+        $rank
+    );
 
-            /** -----------------------
-             *  Combine Counts
-             * ---------------------- */
-            $allocOutQ = OPTv2AllocReqd::from('OPTV2ALLOCREQD as t1')
-                        ->leftJoin('OPTV2ALLOCREQH as t2', 't1.DOCNUM', '=', 't2.DOCNUM')
-                        ->leftJoin('OPTV2PROJECTIONPERIOD as t3', 't2.BASEDOCNUM', '=', 't3.DOCNUM')
-                        ->selectRaw("t1.USERNAME")
-                        ->whereNull('t1.CANCEL')
-                        ->whereNull('t1.APPROVED')
-                        ->whereNotNull('t1.SUBMIT')
-                        ->groupBy('t1.USERNAME', 't1.BASEDOCNUM')   ;
-            
-            $this->applyRankApprovalFilter($allocOutQ,$rank,'allocreqout');
-         
-
-            $cntAllocOut = (int) ($allocOutQ->get()->count() ?? 0);
-
-            // convert allocation query
-
-
-            $convertAllocdQ = OPTv2ConvertAllocd::from('OPTV2CONVERTALLOCD as t1')
-            ->selectRaw("t1.USERNAME")
-            ->whereNull('t1.APPROVED')
-            ->whereNull('t1.CANCEL')
-            ->groupBy('t1.USERNAME', 't1.BASEDOCNUM')   ;
-
-            
-            $this->applyRankApprovalFilter($convertAllocdQ,$rank,'convertalloc');
-
-            $cntConvertAllocd = (int) ($convertAllocdQ->get()->count() ?? 0);
-
-            
-
-            $finalCnt = $cntProjection + $cntAllocIn + $cntAllocOut + $cntConvertAllocd;
-
-            $qcustomertemplist = OPTv2Projectionh::where('CUSTOMER','LIKE','%TEMP%')
-            ->distinct('CUSTOMERNAME')
-            ->count();
+    $cntProjection = (int) $projectionQ->get()->count();
 
 
-            $response = [
-                'approvalscount' => $finalCnt,
-                'customertempcount' => $qcustomertemplist
+    /** -----------------------
+     *  Query 2: ALLOCATION IN
+     * ---------------------- */
+    $allocInQ = OPTv2AllocReqd::from('OPTV2ALLOCREQD as t1')
+        ->leftJoin(
+            'OPTV2ALLOCREQH as t2',
+            't1.DOCNUM',
+            '=',
+            't2.DOCNUM'
+        )
+        ->selectRaw("
+            t1.REFERENCE,
+            t1.BASEDOCNUM
+        ")
+        ->whereIn(
+            't1.PERNR',
+            $arrayFilterPernr
+        )
+        ->whereNull('t1.APPROVED')
+        ->whereNull('t1.CANCEL')
+        ->whereNotNull('t1.SUBMIT')
+        ->groupBy(
+            't1.REFERENCE',
+            't1.BASEDOCNUM'
+        );
 
-            ];
-            
-            return response()->json($response);
+    $this->applyRankApprovalFilter(
+        $allocInQ,
+        $rank
+    );
 
+    $cntAllocIn = (int) $allocInQ->get()->count();
+
+
+    /** -----------------------
+     *  Query 3: ALLOCATION OUT
+     * ---------------------- */
+    $allocOutQ = OPTv2AllocReqd::from('OPTV2ALLOCREQD as t1')
+        ->leftJoin(
+            'OPTV2ALLOCREQH as t2',
+            't1.DOCNUM',
+            '=',
+            't2.DOCNUM'
+        )
+        ->selectRaw("
+            t1.REFERENCE,
+            t1.BASEDOCNUM
+        ")
+        ->whereNull('t1.CANCEL')
+        ->whereNull('t1.APPROVED')
+        ->whereNotNull('t1.SUBMIT')
+        ->groupBy(
+            't1.REFERENCE',
+            't1.BASEDOCNUM'
+        );
+
+    $this->applyRankApprovalFilter(
+        $allocOutQ,
+        $rank,
+        'allocreqout'
+    );
+
+    $cntAllocOut = (int) $allocOutQ->get()->count();
+
+
+    /** -----------------------
+     *  Query 4: CONVERT ALLOCATION
+     * ---------------------- */
+    $convertAllocdQ = OPTv2ConvertAllocd::from(
+        'OPTV2CONVERTALLOCD as t1'
+    )
+        ->selectRaw("
+            t1.USERNAME,
+            t1.BASEDOCNUM
+        ")
+        ->whereNull('t1.APPROVED')
+        ->whereNull('t1.CANCEL')
+        ->groupBy(
+            't1.USERNAME',
+            't1.BASEDOCNUM'
+        );
+
+    $this->applyRankApprovalFilter(
+        $convertAllocdQ,
+        $rank,
+        'convertalloc'
+    );
+
+    $cntConvertAllocd =
+        (int) $convertAllocdQ->get()->count();
+
+
+    /** -----------------------
+     *  TOTAL
+     * ---------------------- */
+    $finalCnt =
+        $cntProjection +
+        $cntAllocIn +
+        $cntAllocOut +
+        $cntConvertAllocd;
+
+
+    $qcustomertemplist = OPTv2Projectionh::where(
+        'CUSTOMER',
+        'LIKE',
+        '%TEMP%'
+    )
+        ->distinct('CUSTOMERNAME')
+        ->count();
+
+
+    return response()->json([
+        'approvalscount' => $finalCnt,
+        'customertempcount' => $qcustomertemplist
+    ]);
 }
 
 public function datatable_dashboard_titlecustomerprojection_list(Request $request) {
@@ -3719,7 +4126,7 @@ public function datatable_dashboard_titlecustomerprojection_list(Request $reques
                                  CUSTOMER
                                  
                         ")
-                        ->orderByRaw('PERNRNAME ASC');
+                        ->orderByRaw('CUSTOMERNAME ASC');
 
 
 
@@ -3878,6 +4285,7 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
         ->leftJoin('OPTV2ALLOCREQH as t2', 't1.DOCNUM', '=', 't2.DOCNUM')
         ->selectRaw("
             t1.id as MAXID,
+            t1.DOCNUM as DOCNUM,
             t1.EAN11  as EAN11,
             t1.DESCRIPTION as DESCRIPTION,
             t1.QTY as QTY,
@@ -3887,8 +4295,10 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
             t2.REQTO as FROMPERNR,
             t1.TOALLOCTYPE as TOALLOCTYPE,
             t1.EAN11 as TEMP,
+            t1.STATUS as STATUS,
             t1.BRANCHWHOUSE as BRANCHWHOUSE,
-            'Alloc. Request' as TYPE
+            t1.DATEAPPROVED as DATEAPPROVED,
+            'Alloc. Req.' as TYPE
         ")
         ->where('t1.BASEDOCNUM',$basedocnum)
         // ->whereNotNull('t1.APPROVED')
@@ -3903,6 +4313,7 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
         $qconvert = OPTv2ConvertAllocd::from('OPTV2CONVERTALLOCD as t1')
         ->selectRaw("
             t1.id as MAXID,
+            '-' as DOCNUM,
             t1.EAN11  as EAN11,
             t1.DESCRIPTION  as DESCRIPTION,
             t1.QTY  as QTY,
@@ -3912,11 +4323,13 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
             '' as FROMTOPERNRNAME,
             t1.TOCONVERTTYPE as TOALLOCTYPE,
             t1.EAN11 as TEMP,
+            t1.STATUS as STATUS,
             t1.BRANCHWHOUSE as BRANCHWHOUSE,
+            t1.DATEAPPROVED as DATEAPPROVED,
             'Convert' as TYPE
         ")
         ->where('BASEDOCNUM',$basedocnum)
-        ->whereNotNull('APPROVED')
+        // ->whereNotNull('APPROVED')
        
         ;
 
@@ -3942,6 +4355,7 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
             
             foreach ($queryFinal as $r) {
                 $num++;
+                $docnum = $r->DOCNUM;
                 $isbn = $r->EAN11;
                 $description = $r->DESCRIPTION;
                 $type = $r->TYPE;
@@ -3951,16 +4365,40 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
                 $toalloctype = $r->TOALLOCTYPE;
                 $frompernrname = $r->FROMPERNRNAME;
                 $branchwhouse = $r->BRANCHWHOUSE;
+                $dateapproved = $r->DATEAPPROVED;
                 $qty = $r->QTY;
-
+                $status = $r->STATUS;
+                $approved = $r->APPROVED;
+                $datedisapproved = $r->DATEDISAPPROVED;
+                $disapporvedby = $r->DISAPPROVEDBY;
+                $remarksdisapproved = $r->REMARKSDISAPPROVED;
                 $topernrlist[] = $topernr;
                 $topernrlist[] = $frompernr;
 
          
 
-                $alloctypeDisplay = acronymFullWord($alloctype) . ' to ' . acronymFullWord($toalloctype); 
+                $alloctypeDisplay = '<span class="fs--2">' . acronymFullWord($alloctype) . ' <span class="fw-bold text-primary"> to </span> ' . acronymFullWord($toalloctype) . '</span>'; 
                 $pernrDisplay = ''; 
                 $descriptionDisplay = '<span class="line-clamp-1" title="'.$description.'"> '.$description.' </span>';
+                $typeDisplay = '<span title="'.$docnum.'"> '.$type.' </span>';
+                $dateapprovedDisplay = '<span class="fs--2">' . formatDate($dateapproved,'y-m-d') .'</span>';
+
+           
+                $addtltext = '';
+                $addtitle = '';
+
+                if($approved == '1') {
+                    $addtltext =  ': ' . $qty;
+                }
+
+    
+                if(!is_null($remarksdisapproved)) {
+
+                  $addtitle = formatDate($datedisapproved,'mdy') . ' &nbsp ' . $disapporvedby . ': ' . $remarksdisapproved   ;
+
+                }
+             
+                $statusDisplay = status_display($status,'badge','0.64', $addtltext,$addtitle);
 
                 $response[] = array (
                     "num" => $num,
@@ -3973,15 +4411,16 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
                     "toalloctype" => $toalloctype,
                     "pernrDisplay" => $pernrDisplay,
                     "branchwhouse" => $branchwhouse,
+                    "dateapproved" => $dateapprovedDisplay,
                     "qty" => $qty,
-                    "type" => $type,
+                    "status" => $statusDisplay,
+                    "type" => $typeDisplay,
 
                 );
                 
             }
 
-            $topernrdetails = OPTv2User::whereIn('PERNR',$topernrlist)
-                        ->get();
+            $topernrdetails = OPTv2User::where('ACTIVE','1')->get();
 
             $toperd = [];
             foreach ($topernrdetails as $f){
@@ -4005,7 +4444,8 @@ public function datatable_reports_alloctransferconvertsummary (Request $request)
     
                 $pernrDisplay = $topernrDisplay;
                 if(!empty($frompernrname)) {
-                    $pernrDisplay = $frompernrDisplay . ' to ' . $topernrDisplay;
+                    $pernrDisplay = '<span class="fs--2">' . $frompernrDisplay . ' <span class="fw-bold text-primary"> to </span> ' . $topernrDisplay . '</span>';
+              
                 }
               
 
@@ -4172,14 +4612,17 @@ public function datatable_dashboard_projectionsummary_list (Request $request) {
             $allocRateColor = 'text-danger-600'; // fallback
         }
 
+        $desctext = isset($descMap['desctext'][ $res['isbn']]) ? $descMap['desctext'][ $res['isbn']] : '';
+        $descdisplay = isset($descMap['descdisplay'][ $res['isbn']]) ?$descMap['descdisplay'][ $res['isbn']] : '';
+        
         $allocrateDisplay = '<span class="'.$allocRateColor.'">'.$allocrate.'%</span>';
         $res['num'] = $num;
         $res['allocrate'] = $allocrateDisplay;
         $res['alloctransferin'] =  $allocin;
         $res['alloctransferout'] = $allocout;
         $res['ordered'] = $ordered;
-        $res['descriptiontext'] = $descMap['desctext'][ $res['isbn']];
-        $res['description'] = $descMap['descdisplay'][ $res['isbn']];
+        $res['descriptiontext'] = $desctext;
+        $res['description'] = $descdisplay;
         $res['edition'] = $descMap['edition'][ $res['isbn']] ?? '-';
 
         $res['allocbal'] = $allocbal;
@@ -4219,6 +4662,7 @@ public function datatable_titleprojectionae_list (Request $request) {
     ->where('t1.BASEDOCNUM', $basedocnum)
     ->where('t1.EAN11', $isbn)
     ->groupBy('t1.PERNR')
+    ->orderByRaw('PERNRNAME ASC')
     ->get();
 
     if(!$qprojection->isEmpty()) {
@@ -4355,6 +4799,7 @@ if ($qprojectiond->isEmpty()) {
 
 }
 
+
 public function datatable_reports_projapprovalstatus(Request $request) {
     
         
@@ -4430,7 +4875,7 @@ public function datatable_reports_projapprovalstatus(Request $request) {
             $pernrToRSM = [];
             foreach ($qUserList as $u) {
                 
-                $pernrToRSM[$u->PERNR] = $u->RSM;
+                $pernrToRSM[trim($u->PERNR)] = trim($u->RSM);
 
             }
             
@@ -4439,15 +4884,45 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                         ->get(['PERNR', 'FULLNAME']);
             $RSMtoName = [];
             foreach ($qUserRSMName as $r) {
-                    $RSMtoName[$r->PERNR] = $r->FULLNAME;
+                    $RSMtoName[trim($r->PERNR)] = $r->FULLNAME;
 
             }
 // ---------------------------- get RSM
 
+//per territory total (rsm)
+$rsmTotals = [];
+
+foreach ($queryprojectiond as $row) {
+    $employeePernr = trim($row->PERNR);
+    $rsmPernr = $pernrToRSM[$employeePernr] ?? null;
+
+    if (!$rsmPernr) {
+        continue;
+    }
+
+    if (!isset($rsmTotals[$rsmPernr])) {
+        $rsmTotals[$rsmPernr] = [
+            'totalprojtn' => 0,
+            'totalprojtnvalue' => 0,
+            'totalprojtnreturned' => 0,
+            'totalprojtnpendingrsm' => 0,
+            'totalprojtnpendingssm' => 0,
+            'totalprojtnapproved' => 0,
+        ];
+    }
+
+    $rsmTotals[$rsmPernr]['totalprojtn'] += (int) $row->TOTALPROJTN;
+    $rsmTotals[$rsmPernr]['totalprojtnvalue'] += (float) $row->TOTALPROJTNVALUE;
+    $rsmTotals[$rsmPernr]['totalprojtnreturned'] += (int) $row->TOTAL_RETURNED;
+    $rsmTotals[$rsmPernr]['totalprojtnpendingrsm'] += (int) $row->TOTAL_PENDINGRSM;
+    $rsmTotals[$rsmPernr]['totalprojtnpendingssm'] += (int) $row->TOTAL_PENDINGSSM;
+    $rsmTotals[$rsmPernr]['totalprojtnapproved'] += (int) $row->TOTAL_APPROVED;
+}
+//---------------
             foreach($queryprojectiond as $risbnprojd){
 
                 $num++;
-                $pernr = $risbnprojd->PERNR;
+                $pernr = trim($risbnprojd->PERNR);
                 $pernrname = $risbnprojd->PERNRNAME;
                 $totalprojtn = $risbnprojd->TOTALPROJTN;
                 $totalfinalprojtn = $risbnprojd->TOTALFINALPROJTN;
@@ -4482,6 +4957,10 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                     ? $RSMtoName[$rsmPernr]
                     : '';
                     
+                $pernrrsmamount = $rsmPernr ? ($rsmTotals[$rsmPernr]['totalprojtn'] ?? 0) : 0;
+                $pernrrsmamountvalue = $rsmPernr ? ($rsmTotals[$rsmPernr]['totalprojtnvalue'] ?? 0) : 0;
+                $pernrrsmamountvalueDisplay = number_format($pernrrsmamountvalue);
+        
                 
                 // ✅ Compute completed count (lahat ng hindi pending)
                 // $completed = $totalprojtn - ($totalprojtnreturned  + $totalprojtnpendingrsm + $totalprojtnpendingssm);
@@ -4531,12 +5010,19 @@ public function datatable_reports_projapprovalstatus(Request $request) {
                 // $totalpendingvalueDisplay = n
                 // $totalapprovedvalueDisplay = 
 
+                
+                $pernrrsmnameDisplay = ' <div class="d-flex justify-content-between "> • ' . $pernrrsmname . '  <span class="text-primary w-75 px-7 fw-bold"> ' .$pernrrsmamountvalueDisplay . '</span></div>';
+                  
                     $response[] = array(
                         "num" => $num,
                         "pernr" => $pernr,
                         "pernrnamedata" => $pernrname,
                         "pernrname" => $pernrnameDisplay,
-                        "pernrrsmname" => '• ' . $pernrrsmname,
+                        "pernrrsmname" => $pernrrsmnameDisplay,
+
+                        "pernrrsmamount" => $pernrrsmamount,
+                        "pernrrsmamountvalue" => $pernrrsmamountvalueDisplay,
+
                         "totalprojtn" => $totalprojtn,
                          "totalprojtnreturned" => $totalprojtnreturned,
                          "totalprojtnpendingrsm" => $totalprojtnpendingrsm,
@@ -4756,7 +5242,7 @@ public function datatable_for_approval_projection_final_customer_isbn_list(Reque
             $isbn = $risbnprojd->EAN11;
 
             $title = $risbnprojd->DESCRIPTION;
-            $qty = $risbnprojd->QTYAPPROVED1;
+            $qty = $risbnprojd->QTY;
             $disc = $risbnprojd->DISC;
             $isbnunitprice = $risbnprojd->UNITP;
             $population = $risbnprojd->POPULATION;
@@ -5675,7 +6161,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                 $isbn = $risbnprojd->EAN11;
                 
                                 $title = $risbnprojd->DESCRIPTION;
-                                $qty = $risbnprojd->QTY;
+                                $qty = $risbnprojd->QTYAPPROVED1;
                                 $disc = $risbnprojd->DISC;
                                 $isbnunitprice = $risbnprojd->UNITP;
                                 $population = $risbnprojd->POPULATION;
@@ -5686,7 +6172,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                 $bsastatus = $risbnprojd->BSA;
                                 $remarks = $risbnprojd->REMARKS;
                                 $aepernr = $risbnprojd->PERNR;
-                
+
                                 $remarksDisplay = '';
                                 $borderDisplay = '';
                                 if(!is_null($remarks)) {
@@ -6449,7 +6935,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
     }
 
         
-     public function datatable_create_projection_customer_list(Request $request) {
+    public function datatable_create_projection_customer_list(Request $request) {
 
     
 
@@ -6548,7 +7034,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                         <div class="d-flex text-center">
                                             
                                             <div class="flex-1 me-sm-3">
-                                                <h4 class="fs--1 text-black">You have no return.</h4>
+                                                <h4 class="fs--1 text-black">You have no return projections</h4>
                                                 
                                                 
                                             </div>
@@ -6595,7 +7081,6 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                     </div>
                                     </div>
                                 </a>';
-
                                 $displayedCustomers = array();
                                 $customerSavedCounts = array();
                                 
@@ -6678,6 +7163,7 @@ public function datatable_for_approval_projection_customer_isbn_list(Request $re
                                         "customersaved" => $customersavedDisplay,
                                     );
                                 }
+        
 
       }
 
@@ -7021,26 +7507,37 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
         $customersaleshistory = customerPrev3YearSalesHistory($kunnr);
 
-        foreach($customersaleshistory as $custr) {
+        if($customersaleshistory->isEmpty()) {
+            $response['cshlist'][] = array(
+                "customercode" => '-',
+                "total_1" => '-',
+                "total_2" => '-',
+                "total_3" => '-',
+            );
+        } else {
+            
+            foreach($customersaleshistory as $custr) {
 
           
-            $customercode = $custr->cust_code;
-            $total_1 = $custr->total_1;
-            $total_2 = $custr->total_2;
-            $total_3 = $custr->total_3;
-        
-            $total_1Display = number_format($total_1);
-            $total_2Display = number_format($total_2);
-            $total_3Display = number_format($total_3);
-
-            $response['cshlist'][] = array(
-                  "customercode" => $customercode,
-                  "total_1" => $total_1Display,
-                  "total_2" => $total_2Display,
-                  "total_3" => $total_3Display,
-            );
-
-      }
+                $customercode = $custr->cust_code;
+                $total_1 = $custr->total_1;
+                $total_2 = $custr->total_2;
+                $total_3 = $custr->total_3;
+            
+                $total_1Display = number_format($total_1);
+                $total_2Display = number_format($total_2);
+                $total_3Display = number_format($total_3);
+    
+                $response['cshlist'][] = array(
+                      "customercode" => $customercode,
+                      "total_1" => $total_1Display,
+                      "total_2" => $total_2Display,
+                      "total_3" => $total_3Display,
+                );
+    
+          }
+    
+        }
 
 
 
@@ -7193,7 +7690,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
                 $qdetailsprojperiod = projection_period_details($projdocnum);
                 $qdetailsusername = userNameDetails($username);
-                $fullname = $qdetailsusername->FULLNAME;
+                $fullname = $qdetailsusername->FULLNAME ?? '';
                 $period = $qdetailsprojperiod->PERIOD;
                 $schoollevel = $qdetailsprojperiod->LEVEL;
                 $startdate = $qdetailsprojperiod->STARTDATE;
@@ -7326,7 +7823,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         $query = OPTv2Projectiond::where('BASEDOCNUM',$projdocnum)
                                 ->where('USERNAME',$staff)
                                 ->where('QTY', '!=', '0')
-                                ->whereNull('SUBMIT'); 
+                                ->whereNull('SUBMIT');
 
      
         if(!$query->exists()){
@@ -7485,6 +7982,13 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 $description = htmlspecialchars($qisbndetails->MAKTX, ENT_QUOTES, 'UTF-8');
                 $balanceqty = $r->QTY ?: 0 ;
 
+                
+                if($alloctype == 'nonbsa'){
+                    
+                    $orderoms = get_year_omstransact_isbn_pernr_pertitle($isbn,$reqtopernr,$projdocnum) ;
+                    $balanceqty = $balanceqty - $orderoms ;
+                }
+
                 $balanceqtyDisplay = number_format($balanceqty);
 
                 $descriptiontruncate = truncatelimitWords($description,27) ;
@@ -7566,14 +8070,14 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                     ->toArray();
                     ;
             $_qstockallocated->whereIn('PERNR',$pernrList);
-            $_qstockallocationbreakdown->whereIn('PERNR',$pernrList);
+            $_qstockallocationbreakdown->whereIn('t1.PERNR',$pernrList);
 
         }
 
         if($pernr !== '1') {
 
             $_qstockallocated->where('PERNR',$pernr);
-            $_qstockallocationbreakdown->where('PERNR',$pernr);
+            $_qstockallocationbreakdown->where('t1.PERNR',$pernr);
         }
 
         $num = 0;
@@ -7583,7 +8087,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
         $qstockallocationbreakdown = $_qstockallocationbreakdown->get();
         $breakdownGrouped = $qstockallocationbreakdown->groupBy(function ($item) {
-            return $item->EAN11 . '-' . $item->BSA . '-' . $item->PERNR;
+            return $item->EAN11 . '-' . $item->BSA . '-' . trim($item->PERNR);
         });
 
 
@@ -7596,6 +8100,17 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         }
         else {
 
+            //ordered
+                $pernr = filter_user_list_in_projection()->pluck('PERNR')->toArray();;
+                $qOrdered = get_year_omstransact_isbn_pernr($pernr,$basedocnum);
+
+                $dorderedMap = [];
+                foreach ($qOrdered as $d3) {
+                    $dorderedMap[$d3->EAN11][trim($d3->PERNR)] = $d3->OMSQTY;
+                }
+            //---------ordered
+            
+            // dd($dorderedMap);
             foreach ($qstockallocated as $r){
                 $num++;
                 $isbn = $r->EAN11;
@@ -7606,7 +8121,8 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 $description = $r->DESCRIPTION;
                 $allocation = $r->QTY;
                 $projection = $r->PROJECTION;
-
+                $ordered =   $dorderedMap[$isbn][trim($pernr)] ?? 0;
+                $orderedDisplay = number_format($ordered);
                 $titlename = htmlspecialchars($description, ENT_QUOTES, 'UTF-8');
                 $descriptionDisplay = '<span title="'.$description.'" class="line-clamp-1">'.$description.'</span>';
          
@@ -7615,24 +8131,29 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 $bsa = $alloctype == 'nonbsa' ? '0' : '1';
 
             // get breakdown for this item
-                $key = $isbn . '-' . $bsa . '-' . $pernr;
+                $key = $isbn . '-' . $bsa . '-' . trim($pernr);
                 $breakdown = $breakdownGrouped->has($key) ? $breakdownGrouped[$key] : collect();
 
                 $breakdownList = $breakdown->map(function ($b) {
                     return $b['BRANCHWHOUSE'] . '<span class="text-warning fw-bold">(' . $b['TOTALPROJTN']. ')</span>';
-                })->implode(' , ');
+                })->implode(', ');
                 
                 $pernrnameDisplay = '<span title="'.$pernrname.'" class="line-clamp-1">'. $pernr . ' ' . $pernrname.'</span>' ;
+
+                $isbnDisplay = ' <div class="d-flex justify-content-between "> • ' . $isbn . '  <span class="text-primary w-75 fw-bold"> ' .$descriptionDisplay . '</span></div>';
+               
+                $isbnDisplay = $isbn;
                 $response[] = array (
                     "num" => $num,
-                    "isbn" => $isbn,
+                    "isbn" => $isbnDisplay,
                     "description" => $descriptionDisplay,
                     "type" => $alloctype,
                     "allocation" => $allocation,
                     "pernr" => $pernr,
+                    "ordered" => $orderedDisplay,
                     "pernrname" => $pernrnameDisplay,
                     "projection" => $projection,
-                    "breakdown" => $breakdownList,
+                    "breakdown" => '*' . $breakdownList,
             
                 );
 
@@ -7673,12 +8194,12 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
     }
 
-
     public function datatable_convertalloc_balance_table(Request $request) {
 
         $isbn = $request->query('isbn');
         $basedocnum = $request->query('basedocnum');
         $converttype = $request->query('converttype');
+        $pernr = session('pernr');
 
         $toconverttype = 'nonbsa';
         if($converttype == 'nonbsa'){
@@ -7714,7 +8235,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
            }
 
            $selectbranchwhouse = '
-                <select name="convertalloc_new_branchwhouse[]" id="" class="form-control d-none convertalloc_new_branchwhouse  form-control-sm">
+                <select name="convertalloc_new_branchwhouse[]" id="" class="form-control convertalloc_new_branchwhouse  form-control-sm">
                     <option value="" disabled selected>Choose in the list </option>
 
                     <optgroup label="Branches" class="branchesopt">
@@ -7734,6 +8255,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         $qinventory = OPTv2Allocated::where('BASEDOCNUM',$basedocnum)
                             ->where('ALLOCTYPE',$converttype)
                             ->where('QTY','<>','0')
+                            ->where('PERNR',$pernr)
                             ->orderBy('PERNR','DESC')
                             ->get();
 
@@ -7773,7 +8295,13 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
             }
 
-            $qitemdetails = ZmmMatdel::whereIn('EAN11',$isbnlist)
+            $qitemdetails = OPTv2Projectiond::groupBy('EAN11')
+                            ->selectRaw('
+                                EAN11,
+                                MAX(DESCRIPTION) as MAKTX,
+                                MAX(MATNR) as MATNR
+                            ')
+                            ->where('BASEDOCNUM',$basedocnum)
                             ->get()
                             ;
 
@@ -7815,7 +8343,6 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         return response()->json($response);
 
     }
-
     public function datatable_create_allocation_request_balance_table(Request $request) {
 
         $isbn = $request->query('isbn');
@@ -7887,15 +8414,21 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 $bsaqtyDisplay = number_format($bsaqty);
                 $nonbsaqtyDisplay = number_format($nonbsaqty);
 
+                if($transfertypeFinal == 'nonbsa'){
+                    
+                    $orderoms = get_year_omstransact_isbn_pernr_pertitle($isbn,$reqtopernr,$projdocnum) ;
+                    $nonbsaqty = $nonbsaqty - $orderoms ;
+                }
+                
                 $bsainput = ' <div class="d-flex justify-content-center">
-                <input class="form-control text-center form-control-sm w-75 allocationrequestaddnewbooktitlerequestqty bsainputqty" value="0" max="'.$bsaqty.'" 
+                <input class="form-control text-center p-1 w-75 allocationrequestaddnewbooktitlerequestqty bsainputqty" value="0" max="'.$bsaqty.'" 
                 data-type="bsa" data-balance="'.$bsaqty.'" data-reqtopernr="'.$reqtopernr.'" data-reqtopernrname="'.$reqtopernrName.'"
                                 type="number" value="" data-isbn="'.$isbn.'" data-title="'.$titlename.'">
                         </div>
                 ';
 
                 $nonbsainput = '<div class="d-flex justify-content-center">
-                <input class="form-control text-center form-control-sm w-75 allocationrequestaddnewbooktitlerequestqty nonbsainputqty" value="0"  max="'.$nonbsaqty.'" 
+                <input class="form-control text-center p-1 w-75 allocationrequestaddnewbooktitlerequestqty nonbsainputqty" value="0"  max="'.$nonbsaqty.'" 
                 data-type="nonbsa" data-balance="'.$nonbsaqty.'" data-reqtopernr="'.$reqtopernr.'" data-reqtopernrname="'.$reqtopernrName.'"
                                 type="number" value="" data-isbn="'.$isbn.'" data-title="'.$titlename.'">
                         </div>
@@ -7904,6 +8437,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 $balance = $bsaqty;
                 $qtyinput = $bsainput;
                 if($transfertypeFinal == 'nonbsa'){
+                    
                     $balance = $nonbsaqty;
                     $qtyinput =  $nonbsainput;
 
@@ -7935,7 +8469,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                 //------
         
                 $branchwhouseDisplay = '
-                                              <select name="branchwhouse[]" id="" class="form-control allocationrequestaddnewbooktitilebranchwhouse form-control-sm">
+                                              <select name="branchwhouse[]" id="" class="form-control allocationrequestaddnewbooktitilebranchwhouse p-1">
                                                     <option value="" selected disabled> Select in the list </option>
                                                     <optgroup label="Branches" class="branchesopt '.$hidebranch.'">
                                                         '.$ab.'
@@ -7950,34 +8484,49 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
                 $reqtopernrfull = $reqtopernr . ' &nbsp' . $reqtopernrName;
                 $reqtopernrnameDisplay = '<span class="line-clamp-1" title="'.$reqtopernrfull.'"> '.$reqtopernrfull.' </span>';
-                $response[] = array (
-                    "isbn" => $isbn,
-                    "titlename" => $titlename,
-                    "reqtopernrname" => $reqtopernrnameDisplay,
-                    "balance" => $balance,
-                    "qtyinput" => $qtyinput,
-                    "nonbsaqty" => $nonbsaqty,
-                    "bsaqty" => $bsaqty,
-                    "nonbsaqty" => $nonbsaqty,
-                    "bsaqtyDisplay" => $bsaqtyDisplay,
-                    "nonbsaqtyDisplay" => $nonbsaqtyDisplay,
-                    "bsainput" => $bsainput,
-                    "nonbsainput" => $nonbsainput,
-                    "branchwhouse" => $branchwhouseDisplay,
-                    "type" => $type,
-                );
+
+                if($balance > 0) {
+
+                    $response[] = array (
+                        "isbn" => $isbn,
+                        "titlename" => $titlename,
+                        "reqtopernrname" => $reqtopernrnameDisplay,
+                        "balance" => $balance,
+                        "qtyinput" => $qtyinput,
+                        "nonbsaqty" => $nonbsaqty,
+                        "bsaqty" => $bsaqty,
+                        "nonbsaqty" => $nonbsaqty,
+                        "bsaqtyDisplay" => $bsaqtyDisplay,
+                        "nonbsaqtyDisplay" => $nonbsaqtyDisplay,
+                        "bsainput" => $bsainput,
+                        "nonbsainput" => $nonbsainput,
+                        "branchwhouse" => $branchwhouseDisplay,
+                        "type" => $type,
+                    );
+                    
+                } else {
+
+                }
+            
 
 
             }
 
         }
       
+        if(empty($response)) {
+
+            $response = [
+                "num" => 0
+            ];
+
+        }
         
         
         return response()->json($response);
 
     }
-
+   
     public function datatable_allocation_request_list_table(Request $request) {
 
         $pernr = session('pernr');
@@ -8121,7 +8670,58 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
     }
 
+    public function get_customer_projectiond(Request $request) {
 
+        $customercode = $request->query('customercode');
+        $basedocnum = $request->query('basedocnum');
+        $qprojectionperiod = projection_period_details($basedocnum);
+        $supplemental = $qprojectionperiod->SUPPLEMENTAL;
+
+        $qprojectiond = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+            ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM')
+            ->where('t1.SUPPLEMENTAL', $supplemental)
+            ->where('t2.CUSTOMER', $customercode)
+            ->get();
+
+        if($qprojectiond->isEmpty()) {
+            $response = [
+                "num" => 0
+            ];
+        } else {
+
+
+            $num = 0;
+            foreach ($qprojectiond as $r) {
+
+                $num++;
+                $isbn = $r->EAN11;
+                $title = $r->DESCRIPTION;
+                $unitp = $r->UNITP;
+                $disc = $r->DISC;
+                $population = $r->POPULATION;
+                $isbnunitpriceDisplay = number_format($unitp);
+
+                $response[] = array(
+                    "num" => $num,
+                    "customercode" => $customercode,
+                    "isbn" => $isbn,
+                    "title" => $title,
+                    "unitp" => $unitp,
+                    "population" => $population,
+                    "isbnunitpriceDisplay" => $isbnunitpriceDisplay,
+                    "disc" => $disc,
+
+        
+                );
+            }
+
+        }
+
+
+        
+        return response()->json($response);
+
+    }
     public function get_projection_minidashboard(Request $request) {
 
         $pernr = $request->query('pernr');
@@ -8169,7 +8769,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                                         ->leftJoin('OPTV2PROJECTIONPERIOD as t2','t1.BASEDOCNUM','=','t2.DOCNUM')
                                         ->where('APPROVED','1')
                                         ->where('USERNAME',$username)
-                                        ->where('YEAR','LIKE','%-'.$thisyear.'%')
+                                        ->where('YEAR','LIKE','%'.$thisyear.'-%')
                                         ->first();
 
 
@@ -8470,6 +9070,167 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
             
         
         return response()->json($response);
+
+    }
+
+    public function submit_find_item_inallocated(Request $request) {
+
+ 
+        $basedocnum = $request->input('basedocnum');
+        $alloctype = $request->input('alloctype');
+
+        $html = '';
+        $num = 0;
+        $qprojectiond = OPTv2Allocated::where('BASEDOCNUM', $basedocnum)
+                            ->where('ALLOCTYPE', $alloctype)
+                            ->select('EAN11')
+                            ->distinct()
+                            ->pluck('EAN11')
+                            ->toArray();
+                                //  ->get();
+
+
+        // if($qprojectiond->isEmpty()) {
+        if(empty($qprojectiond)) {
+
+            $response[] = array(
+                "num" =>  '0',
+                "description" =>  'No records found.'
+            );
+        } else {
+
+            $qmatdel = ZmmMatdel::select('*')
+                        ->whereIn('EAN11',$qprojectiond)
+                        ->get();
+
+            foreach($qmatdel as $projd) {
+                $num++;
+
+                $isbn = $projd->EAN11;
+                $description = strtoupper($projd->MAKTX);
+
+
+                $isbnlist[] = $isbn;
+
+                $nan = "Not Found";
+                $author = $projd->ZZAUTHOR1;
+                $copyright = $projd->ZZCOPYRIGHT;
+
+                $unitprice = $projd->UNITP;
+                $isbnunitpriceclean = str_replace(',', '', $unitprice);
+                $unitpriceDisplay = number_format($unitprice);
+
+                $discount = 0;
+                $finalunitprice = $unitprice;
+
+                $titleDisplay = truncatelimitWords($description, 27);
+                $copyrightDisplay = empty($copyright) || $copyright == ' ' ? '-' : $copyright;
+
+                $descriptionDisplay = '<i>' . $isbn .  '</i>&nbsp&nbsp ' .  $description ;
+                $response[] = [
+                    "num" => $num,
+                    "description" => $descriptionDisplay,
+                    "descriptionDisplay" => $titleDisplay,
+                    "isbn" => $isbn,
+                    "copyright" => $copyrightDisplay,
+                    "author" => $author,
+                    "label" => '000TEMP',
+                    "discount" => $discount,
+                    "unitprice" => $unitprice,
+                    "isbnunitpriceclean" => $isbnunitpriceclean,
+                    "unitpriceDisplay" => $unitpriceDisplay,
+                    "finalunitprice" => $finalunitprice,
+                ];
+
+            }
+        
+
+        }
+   
+
+        
+        return response()->json($response);
+
+
+    }
+    public function submit_find_item_inprojectiond(Request $request) {
+
+ 
+        $basedocnum = $request->input('basedocnum');
+
+        $html = '';
+        $num = 0;
+        $qprojectiond = OPTv2Projectiond::where('BASEDOCNUM',$basedocnum)
+                                ->selectRaw('
+                                    EAN11,
+                                    DESCRIPTION,
+                                    MAX(AUTHOR) as AUTHOR,
+                                    MAX(UNITP) as UNITP,
+                                    MAX(COPYRIGHT) as COPYRIGHT
+
+
+                                ')
+                                ->orderBy('DESCRIPTION','ASC')
+                                ->groupBy('EAN11','DESCRIPTION')
+                                 ->get();
+
+
+        if($qprojectiond->isEmpty()) {
+
+            $response[] = array(
+                "num" =>  '0',
+                "description" =>  'No records found.'
+            );
+        } else {
+
+            foreach($qprojectiond as $projd) {
+                $num++;
+
+                $isbn = $projd->EAN11;
+                $description = strtoupper($projd->DESCRIPTION);
+
+
+                $isbnlist[] = $isbn;
+
+                $nan = "Not Found";
+                $author = $projd->AUTHOR;
+                $copyright = $projd->COPYRIGHT;
+
+                $unitprice = $projd->UNITP;
+                $isbnunitpriceclean = str_replace(',', '', $unitprice);
+                $unitpriceDisplay = number_format($unitprice);
+
+                $discount = 0;
+                $finalunitprice = $unitprice;
+
+                $titleDisplay = truncatelimitWords($description, 27);
+                $copyrightDisplay = empty($copyright) || $copyright == ' ' ? '-' : $copyright;
+
+                $descriptionDisplay = '<i>' . $isbn .  '</i>&nbsp&nbsp ' .  $description ;
+                $response[] = [
+                    "num" => $num,
+                    "description" => $descriptionDisplay,
+                    "descriptionDisplay" => $titleDisplay,
+                    "isbn" => $isbn,
+                    "copyright" => $copyrightDisplay,
+                    "author" => $author,
+                    "label" => '000TEMP',
+                    "discount" => $discount,
+                    "unitprice" => $unitprice,
+                    "isbnunitpriceclean" => $isbnunitpriceclean,
+                    "unitpriceDisplay" => $unitpriceDisplay,
+                    "finalunitprice" => $finalunitprice,
+                ];
+
+            }
+        
+
+        }
+   
+
+        
+        return response()->json($response);
+
 
     }
 
@@ -9216,10 +9977,10 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
 
 
-  public function approve_projection_isbn(Request $request) {
+public function approve_projection_isbn(Request $request) {
 
     $staff = session('user_staff');
-    $pernr = session('pernr');
+    $approverPernr = session('pernr');
     $id = $request->input('id');
     $approveQty = $request->input('approveQty');
     $unitp = $request->input('unitp');
@@ -9239,15 +10000,9 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
     $updateprojectiond = OPTv2Projectiond::where('id',$id)
                 ->update([
                     // "STATUS" => 'for_ssm_approval',
-                    "STATUS" => 'approved',
-                    "APPROVED" => '1',
-                    "DATEAPPROVED" => $date_now,
-                    "APPROVED2" => '1',
-                    "APPROVEDBY2" => $pernr,
-                    "QTYAPPROVED2" => $approve_qty,
-                    "DATEAPPROVED2" => $date_now,
+                    "STATUS" => 'for_ssm_approval',
                     "APPROVED1" => '1',
-                    "APPROVEDBY1" => $pernr,
+                    "APPROVEDBY1" => $approverPernr,
                     "QTYAPPROVED1" => $rsm_qty,
                     "DATEAPPROVED1" => $date_now,
                     "LINETOTAL" => $linetotal,
@@ -9257,56 +10012,91 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
         if($updateprojectiond) {
             $status = 2;
 
-            $updateprojectiond = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1') 
-                    ->leftjoin('OPTV2PROJECTIONH as t2','t1.DOCNUM','=','t2.DOCNUM') 
-                    ->select('t1.*','BSA','CUSTOMER')
-                    ->where('t1.id',$id)
-                    ->first();
+            $div = session('division');
 
-            $pernr = trim($updateprojectiond->PERNR);
+            if (strpos(trim($div), 'BED') !== false) {
 
-            $quserdetails = userDetails($pernr);
+                $projectionRows = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+                ->where('t1.id',$id)
+                ->selectRaw('   
+                        t1.*,
+                        (SELECT TOP 1 CUSTOMER FROM OPTV2PROJECTIONH t2 WHERE t1.DOCNUM = t2.DOCNUM ) as CUSTOMER'
+                )
+                ->first();
 
-            $basedocnum = $updateprojectiond->BASEDOCNUM;
+                if (empty($projectionRows)) {
+                    $status = 403;
+                } else {
+                    try {
 
+                        DB::transaction(function () use ($projectionRows, $approverPernr, $date_now) {
 
-            $qprojectiondetails = projection_period_details($basedocnum);
-            $school_year = $qprojectiondetails->YEAR;
+                            $row = $projectionRows;
 
-            $pernrrsm = $updateprojectiond->PERNR;
-            $pernrssmsm = $updateprojectiond->PERNR;
-            $isbn = $updateprojectiond->EAN11;
-            $matnr = $updateprojectiond->MATNR;
-            $customercode = $updateprojectiond->CUSTOMER;
-            $bsa = $updateprojectiond->BSA;
-            $population = $updateprojectiond->POPULATION;
-            $qty = $updateprojectiond->QTY;
-            $rsm = $quserdetails->RSM;
-            $ssm = $quserdetails->SSM;
-         
+                                OPTv2Projectiond::where('id', $row->id)
+                                        ->update([
+                                            "STATUS" => 'approved',
+                                            "APPROVED" => '1',
+                                            "DATEAPPROVED" => $date_now,
+                                            "APPROVED2" => '1',
+                                            "APPROVEDBY2" => $approverPernr,
+                                            "QTYAPPROVED2" => $row->QTY,
+                                            "DATEAPPROVED2" => $date_now,
+                                        ]);
+
+                                $pernr = trim($row->PERNR);
+                                $basedocnum = $row->BASEDOCNUM;
+
+                                $quserdetails = userDetails($pernr);
+                                $qprojectiondetails = projection_period_details($basedocnum);
+
+                                $school_year = $qprojectiondetails->YEAR ?? null;
+
+                                $isbn = $row->EAN11;
+                                $matnr = $row->MATNR;
+                                $customercode = $row->CUSTOMER;
+                                $bsa = $row->BSA;
+                                $population = $row->POPULATION;
+                                $qty = $row->QTY;
+
+                                $rsm = $quserdetails->RSM ?? null;
+                                $ssm = $quserdetails->SSM ?? null;
+
+                                $pernrleadzeros = ltrim(trim($pernr), '0');
+                                $rsmleadzeros = ltrim(trim((string)$rsm), '0');
+                                $ssmleadzeros = ltrim(trim((string)$ssm), '0');
+
+                                $qtybsa = $bsa == '1' ? $qty : 0;
+                                $qtynbsa = $bsa != '1' ? $qty : 0;
+
+                                CrmProjection::create([
+                                    "idno" => $pernrleadzeros,
+                                    "school_id" => $customercode,
+                                    "isbn" => $isbn,
+                                    "matnr" => $matnr,
+                                    "school_year" => $school_year,
+                                    "population" => $population,
+                                    "projection_bsa" => $qtybsa,
+                                    "projection_con" => $qtynbsa,
+                                    "status" => '3',
+                                    "remarks" => 'Projection Approved',
+                                    "rsm" => $rsmleadzeros,
+                                    "ssm" => $ssmleadzeros,
+                                    "batchid" => $basedocnum,
+                                ]);
+                            
+                        });
+
+                        $status = 2;
+
+                    } catch (\Exception $e) {
+                        $status = 500;
+                        $html = $e->getMessage();
+                    }
+                }
+            }
+
   
-            $pernrleadzeros = ltrim(trim($pernr), '0');
-            $rsmleadzeros = ltrim(trim($rsm), '0');
-            $ssmleadzeros = ltrim(trim($ssm), '0');
-
-            $qtybsa = $bsa == '1' ? $qty : 0;
-            $qtynbsa = $bsa !== '1' ? $qty : 0;
-
-                $qcreatecrmprojection = CrmProjection::create([
-                        "idno" => $pernrleadzeros, 
-                        "school_id" => $customercode, 
-                        "isbn" => $isbn, 
-                        "matnr" => $matnr, 
-                        "school_year" => $school_year, 
-                        "population" => $population, 
-                        "projection_bsa" => $qtybsa, 
-                        "projection_con" => $qtynbsa, 
-                        "status" => '3', 
-                        "remarks" => 'Projection Approved', 
-                        "rsm" => $rsmleadzeros, 
-                        "ssm" => $ssmleadzeros, 
-                        "batchid" => $basedocnum, 
-                ]);
 
         }
         
@@ -9327,6 +10117,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
 }
 
+
   public function submit_allocate_qty(Request $request) {
 
     $staff = session('user_staff');
@@ -9345,6 +10136,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
     $qprojperiod = projection_period_details($stockallocate_basedocnum_input);
 
     $projectionid = $qprojperiod->PROJECTIONID;
+    $basedocnum = $stockallocate_basedocnum_input;
 
     $noUpdate = true;
     $html = '';
@@ -9354,19 +10146,51 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
     $insertAllocationHeader = [];
     $insertAllocated = [];
     $isbnlist = [];
+
+    // $max = max(
+    //     count($stockallocate_matnr_input),
+    //     count($stockallocate_isbn_input),
+    //     count($stockallocate_stock_allocate_qty_input),
+    //     count($stockallocate_alloctype_input),
+    //     count($stockallocate_basedocnum_input),
+    //     count($stockallocate_pernr_input),
+    //     count($stockallocate_projqty_input)
+    // );
+    
+    // $rows = [];
+    
+    // for ($x = 0; $x < $max; $x++) {
+    //     $rows[] = [
+    //         'pos' => $x,
+    //         'matnr' => $stockallocate_matnr_input[$x] ?? 'WALA',
+    //         'isbn' => $stockallocate_isbn_input[$x] ?? 'WALA',
+    //         'stock_allocate_qty' => $stockallocate_stock_allocate_qty_input[$x] ?? 'WALA',
+    //         'alloctype' => $stockallocate_alloctype_input[$x] ?? 'WALA',
+    //         'basedocnum' => $stockallocate_basedocnum_input[$x] ?? 'WALA',
+    //         'pernr' => $stockallocate_pernr_input[$x] ?? 'WALA',
+    //         'projqty' => $stockallocate_projqty_input[$x] ?? 'WALA',
+    //     ];
+    // }
+    
+    // dd($rows);
+    
+    // dd($basedocnum);
+
     if(!empty($stockallocate_isbn_input) && is_array($stockallocate_isbn_input)) {
 
+   
+
         foreach($stockallocate_isbn_input as $a => $i) {
-            
-            
+        
+
             $matnr = $stockallocate_matnr_input[$a];
             $isbn = $stockallocate_isbn_input[$a];
             $stock_allocate_qty = $stockallocate_stock_allocate_qty_input[$a];
             $alloctype = $stockallocate_alloctype_input[$a];
-            $basedocnum = $stockallocate_basedocnum_input[$a];
+      
             $pernr = $stockallocate_pernr_input[$a];
             $projqty = $stockallocate_projqty_input[$a];
-
+         
             $pernrleadzeros = ltrim(trim($pernr), '0');
 
             if($stock_allocate_qty > 0) {
@@ -9395,38 +10219,54 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
                         $alloctypeFinal = 'nbsa';
 
                     }
-                    
-                    $insertAllocated[] = [
-                        "MATNR" => $matnr,
-                        "TEMPEAN11" => $isbn,
-                        "EAN11" => $isbn,
-                        "BASEDOCNUM" => $basedocnum,
-                        "PROJECTIONID" => $projectionid,
-                        "ALLOCTYPE" => $alloctype,
-                        "ALLOCATED" => $stock_allocate_qty,
-                        "QTY" => $stock_allocate_qty,
-                        "PERNR" => $pernr,
-                        "PROJECTION" => $projqty,
-                        "created_at" => $date_now_full,
-                        "updated_at" => $date_now_full
-                    ];
-
-                    $insertAllocationHeader[] = [
-
-                  
-                        "isbn" => $isbn,
-                        "aActual" => 0,
-                        "aType" => $alloctypeFinal,
-                        "aAE" => $pernrleadzeros,
-                        "aBatch" => $basedocnum,
-                        "matnr" => $matnr,
-                        "aQty" => $stock_allocate_qty,
-                        "DateAdded" => $date_now_full,
-                        "DateUpdated" => $date_now_full,
-                        "prsCode" => '-',
-                        "prCode" => '-',
-                        "poCode" => '-',
-                    ];
+                         // check muna kung existing sa OPTv2Allocated
+                         $existsAllocated = OPTv2Allocated::where('EAN11', $isbn)
+                         ->where('ALLOCTYPE', $alloctype)
+                         ->where('PERNR', $pernr)
+                         ->where('BASEDOCNUM', $basedocnum)
+                         ->exists();
+     
+                     if (!$existsAllocated) {
+                         $insertAllocated[] = [
+                             "MATNR" => $matnr,
+                             "TEMPEAN11" => $isbn,
+                             "EAN11" => $isbn,
+                             "BASEDOCNUM" => $basedocnum,
+                             "PROJECTIONID" => $projectionid,
+                             "ALLOCTYPE" => $alloctype,
+                             "ALLOCATED" => $stock_allocate_qty,
+                             "QTY" => $stock_allocate_qty,
+                             "PERNR" => $pernr,
+                             "PROJECTION" => $projqty,
+                             "created_at" => $date_now_full,
+                             "updated_at" => $date_now_full
+                         ];
+                     }
+     
+     
+                        // check muna kung existing sa CrmAllocationHeader
+                     $existsHeader = CrmAllocationHeader::where('isbn', $isbn)
+                     ->where('aType', $alloctypeFinal)
+                     ->where('aAE', $pernrleadzeros)
+                     ->where('aBatch', $basedocnum)
+                     ->exists();
+     
+                     if (!$existsHeader) {
+                         $insertAllocationHeader[] = [
+                             "isbn" => $isbn,
+                             "aActual" => 0,
+                             "aType" => $alloctypeFinal,
+                             "aAE" => $pernrleadzeros,
+                             "aBatch" => $basedocnum,
+                             "matnr" => $matnr,
+                             "aQty" => $stock_allocate_qty,
+                             "DateAdded" => $date_now_full,
+                             "DateUpdated" => $date_now_full,
+                             "prsCode" => '-',
+                             "prCode" => '-',
+                             "poCode" => '-',
+                         ];
+                     }
     
     
                 // }
@@ -9487,71 +10327,7 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
     return response()->json($response);
   }
-  public function submit_changeprojection_final_approve_qty(Request $request) {
-
-
-    $docnum = $request->input('docnum');
-    $aepernr = $request->input('aepernr');
-    $isbn = $request->input('isbn');
-    $approve_qty = $request->input('qty');
-    $linetotal = $request->input('linetotal');
-
-    $html = '';
-    $status = 404;
-    
-    // dd($aepernr);
-    $updateapproveqty = OPTv2Projectiond::where('DOCNUM',$docnum)
-                        ->where('EAN11',$isbn)
-                        ->where('PERNR',$aepernr)
-                        ->update([
-                            "QTY" => $approve_qty,
-                            "LINETOTAL" => $linetotal,
-                        ]);
-
-    if($updateapproveqty) {
-        $status = 2;
-    }
-    $response = array(
-        'status' => $status,
-        'html' => $html
-    );
-                            
-    return response()->json($response);
-
-  }
   
-  public function submit_changeprojection_approve_qty(Request $request) {
-
-
-    $docnum = $request->input('docnum');
-    $aepernr = $request->input('aepernr');
-    $isbn = $request->input('isbn');
-    $approve_qty = $request->input('qty');
-    $linetotal = $request->input('linetotal');
-
-    $html = '';
-    $status = 404;
-    
-    // dd($aepernr);
-    $updateapproveqty = OPTv2Projectiond::where('DOCNUM',$docnum)
-                        ->where('EAN11',$isbn)
-                        ->where('PERNR',$aepernr)
-                        ->update([
-                            "QTY" => $approve_qty,
-                            "LINETOTAL" => $linetotal,
-                        ]);
-
-    if($updateapproveqty) {
-        $status = 2;
-    }
-    $response = array(
-        'status' => $status,
-        'html' => $html
-    );
-                            
-    return response()->json($response);
-
-  }
 //   public function submit_approve_projection(Request $request) {
 
 //     $staff = session('user_staff');
@@ -9585,11 +10361,12 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 //         foreach ($docnum_input as $i => $cc){
 
 //             $docnumapproves[] = $docnum_input[$i] ?? null;
+//             // $isbnapproves[] = $isbn_input[$i] ?? null;
 
 //             $docnum = $docnum_input[$i] ?? null;
 //             $customercode = $customercode_input[$i] ?? null;
-//             $linetotal = $linetotal_input[$i] ?? 0;
-//             $rsm_qty = $rsm_qty_input[$i] ?? 0;
+//             $linetotal = $linetotal_input[$i] ?? null;
+//             $rsm_qty = $rsm_qty_input[$i] ?? null;
 //             $isbn = $isbn_input[$i] ?? null;
 //             $isbn_approve = $isbn_approve_input[$i] ?? null;
 
@@ -9679,252 +10456,6 @@ $queryprojectiond =  OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
 
     
 // }
-
-public function submit_approve_projection_final(Request $request)
-{
-    $staff = session('user_staff');
-    $approverPernr = session('pernr');
-    $username = $request->query('username');
-    $date_now = date_now('dateonly');
-
-    $docnum_input = $request->input('forapproval_projection_final_docnum');
-
-    $status = 404;
-    $html = '';
-
-    if (!empty($docnum_input)) {
-
-        $projectionRows = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
-            ->whereIn('DOCNUM', (array)$docnum_input)
-            ->where('USERNAME', $username)
-            ->selectRaw('   
-                    t1.*,
-                    (SELECT TOP 1 CUSTOMER FROM OPTV2PROJECTIONH t2 WHERE t1.DOCNUM = t2.DOCNUM ) as CUSTOMER'
-            )
-            ->whereNotNull('APPROVED1')
-            ->whereNull('APPROVED2')
-            ->get();
-
-        if ($projectionRows->isEmpty()) {
-            $status = 403;
-        }
-
-        try {
-
-            DB::transaction(function () use ($projectionRows, $approverPernr, $date_now) {
-
-                foreach ($projectionRows as $row) {
-
-                    $row->update([
-                        "STATUS" => 'approved',
-                        "APPROVED" => '1',
-                        "DATEAPPROVED" => $date_now,
-                        "APPROVED2" => '1',
-                        "APPROVEDBY2" => $approverPernr,
-                        "QTYAPPROVED2" => $row->QTY,
-                        "DATEAPPROVED2" => $date_now,
-                    ]);
-
-                    $pernr = trim($row->PERNR);
-                    $basedocnum = $row->BASEDOCNUM;
-
-                    $quserdetails = userDetails($pernr);
-                    $qprojectiondetails = projection_period_details($basedocnum);
-
-                    $school_year = $qprojectiondetails->YEAR ?? null;
-
-                    $isbn = $row->EAN11;
-                    $matnr = $row->MATNR;
-                    $customercode = $row->CUSTOMER;
-                    $bsa = $row->BSA;
-                    $population = $row->POPULATION;
-                    $qty = $row->QTY;
-
-                    $rsm = $quserdetails->RSM ?? null;
-                    $ssm = $quserdetails->SSM ?? null;
-
-                    $pernrleadzeros = ltrim(trim($pernr), '0');
-                    $rsmleadzeros = ltrim(trim($rsm), '0');
-                    $ssmleadzeros = ltrim(trim($ssm), '0');
-
-                    $qtybsa = $bsa == '1' ? $qty : 0;
-                    $qtynbsa = $bsa != '1' ? $qty : 0;
-
-                    CrmProjection::create([
-                        "idno" => $pernrleadzeros,
-                        "school_id" => $customercode,
-                        "isbn" => $isbn,
-                        "matnr" => $matnr,
-                        "school_year" => $school_year,
-                        "population" => $population,
-                        "projection_bsa" => $qtybsa,
-                        "projection_con" => $qtynbsa,
-                        "status" => '3',
-                        "remarks" => 'Projection Approved',
-                        "rsm" => $rsmleadzeros,
-                        "ssm" => $ssmleadzeros,
-                        "batchid" => $basedocnum,
-                    ]);
-                }
-
-            });
-
-            $status = 2;
-
-        } catch (\Exception $e) {
-
-            $status = 500;
-            $html = $e->getMessage();
-
-        }
-
-    } else {
-
-        $status = 410;
-
-    }
-
-    return response()->json([
-        'status' => $status,
-        'html' => $html
-    ]);
-}
-
-public function submit_approve_projection(Request $request)
-{
-    $staff = session('user_staff');
-    $approverPernr = session('pernr');
-    $username = $request->query('username');
-    $projdocnum = $request->query('projdocnum');
-    $date_now_full = date_now();
-    $date_now = date_now('dateonly');
-
-    $docnum_input = $request->input('forapproval_projection_docnum');
-
-    $status = 404;
-    $html = '';
-
-    if (!empty($docnum_input)) {
-
-        $updateprojectiond = OPTv2Projectiond::whereIn('DOCNUM', (array)$docnum_input)
-            ->where('USERNAME', $username)
-            ->whereNotNull('SUBMIT')
-            ->whereNull('APPROVED1')
-            ->update([
-                "STATUS" => 'for_ssm_approval',
-                "APPROVED1" => '1',
-                "APPROVEDBY1" => $approverPernr,
-                "QTYAPPROVED1" => DB::raw('QTY'),
-                "DATEAPPROVED1" => $date_now,
-            ]);
-
-        if ($updateprojectiond) {
-            $status = 2;
-
-            $div = session('division');
-
-            if (strpos(trim($div), 'BED') !== false) {
-
-                $projectionRows = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
-                    ->whereIn('t1.DOCNUM', (array)$docnum_input)
-                    ->where('t1.USERNAME', $username)
-                    ->whereNotNull('t1.APPROVED1')
-                    ->whereNull('t1.APPROVED2')
-                    ->selectRaw('
-                        t1.*,
-                        (SELECT TOP 1 CUSTOMER 
-                         FROM OPTV2PROJECTIONH t2 
-                         WHERE t1.DOCNUM = t2.DOCNUM) as CUSTOMER
-                    ')
-                    ->get();
-
-                if ($projectionRows->isEmpty()) {
-                    $status = 403;
-                } else {
-                    try {
-
-                        DB::transaction(function () use ($projectionRows, $approverPernr, $date_now) {
-
-                            foreach ($projectionRows as $row) {
-
-                                $row->update([
-                                    "STATUS" => 'approved',
-                                    "APPROVED" => '1',
-                                    "DATEAPPROVED" => $date_now,
-                                    "APPROVED2" => '1',
-                                    "APPROVEDBY2" => $approverPernr,
-                                    "QTYAPPROVED2" => $row->QTY,
-                                    "DATEAPPROVED2" => $date_now,
-                                ]);
-
-                                $pernr = trim($row->PERNR);
-                                $basedocnum = $row->BASEDOCNUM;
-
-                                $quserdetails = userDetails($pernr);
-                                $qprojectiondetails = projection_period_details($basedocnum);
-
-                                $school_year = $qprojectiondetails->YEAR ?? null;
-
-                                $isbn = $row->EAN11;
-                                $matnr = $row->MATNR;
-                                $customercode = $row->CUSTOMER;
-                                $bsa = $row->BSA;
-                                $population = $row->POPULATION;
-                                $qty = $row->QTY;
-
-                                $rsm = $quserdetails->RSM ?? null;
-                                $ssm = $quserdetails->SSM ?? null;
-
-                                $pernrleadzeros = ltrim(trim($pernr), '0');
-                                $rsmleadzeros = ltrim(trim((string)$rsm), '0');
-                                $ssmleadzeros = ltrim(trim((string)$ssm), '0');
-
-                                $qtybsa = $bsa == '1' ? $qty : 0;
-                                $qtynbsa = $bsa != '1' ? $qty : 0;
-
-                                CrmProjection::create([
-                                    "idno" => $pernrleadzeros,
-                                    "school_id" => $customercode,
-                                    "isbn" => $isbn,
-                                    "matnr" => $matnr,
-                                    "school_year" => $school_year,
-                                    "population" => $population,
-                                    "projection_bsa" => $qtybsa,
-                                    "projection_con" => $qtynbsa,
-                                    "status" => '3',
-                                    "remarks" => 'Projection Approved',
-                                    "rsm" => $rsmleadzeros,
-                                    "ssm" => $ssmleadzeros,
-                                    "batchid" => $basedocnum,
-                                ]);
-                            }
-                        });
-
-                        $status = 2;
-
-                    } catch (\Exception $e) {
-                        $status = 500;
-                        $html = $e->getMessage();
-                    }
-                }
-            }
-
-        } else {
-            $status = 404;
-        }
-
-    } else {
-        $status = 410;
-    }
-
-    $response = array(
-        'status' => $status,
-        'html' => $html
-    );
-
-    return response()->json($response);
-}
-
 
 public function approve_projection_final_isbn(Request $request) {
 
@@ -10209,6 +10740,376 @@ public function approve_projection_final_isbn(Request $request) {
 
 
 // }
+
+public function submit_approve_projection_final(Request $request)
+{
+    $staff = session('user_staff');
+    $approverPernr = session('pernr');
+    $username = $request->query('username');
+    $date_now = date_now('dateonly');
+
+    $docnum_input = $request->input('forapproval_projection_final_docnum');
+
+    $status = 404;
+    $html = '';
+
+    if (!empty($docnum_input)) {
+
+        $projectionRows = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+            ->whereIn('DOCNUM', (array)$docnum_input)
+            ->where('USERNAME', $username)
+            ->selectRaw('   
+                    t1.*,
+                    (SELECT TOP 1 CUSTOMER FROM OPTV2PROJECTIONH t2 WHERE t1.DOCNUM = t2.DOCNUM ) as CUSTOMER'
+            )
+            ->whereNotNull('APPROVED1')
+            ->whereNull('APPROVED2')
+            ->get();
+
+        if ($projectionRows->isEmpty()) {
+            $status = 403;
+        }
+
+        try {
+
+            DB::transaction(function () use ($projectionRows, $approverPernr, $date_now) {
+
+                foreach ($projectionRows as $row) {
+
+                    $row->update([
+                        "STATUS" => 'approved',
+                        "APPROVED" => '1',
+                        "DATEAPPROVED" => $date_now,
+                        "APPROVED2" => '1',
+                        "APPROVEDBY2" => $approverPernr,
+                        "QTYAPPROVED2" => $row->QTY,
+                        "DATEAPPROVED2" => $date_now,
+                    ]);
+
+                    $pernr = trim($row->PERNR);
+                    $basedocnum = $row->BASEDOCNUM;
+
+                    $quserdetails = userDetails($pernr);
+                    $qprojectiondetails = projection_period_details($basedocnum);
+
+                    $school_year = $qprojectiondetails->YEAR ?? null;
+
+                    $isbn = $row->EAN11;
+                    $matnr = $row->MATNR;
+                    $customercode = $row->CUSTOMER;
+                    $bsa = $row->BSA;
+                    $population = $row->POPULATION;
+                    $qty = $row->QTY;
+
+                    $rsm = $quserdetails->RSM ?? null;
+                    $ssm = $quserdetails->SSM ?? null;
+
+                    $pernrleadzeros = ltrim(trim($pernr), '0');
+                    $rsmleadzeros = ltrim(trim($rsm), '0');
+                    $ssmleadzeros = ltrim(trim($ssm), '0');
+
+                    $qtybsa = $bsa == '1' ? $qty : 0;
+                    $qtynbsa = $bsa != '1' ? $qty : 0;
+
+                    CrmProjection::create([
+                        "idno" => $pernrleadzeros,
+                        "school_id" => $customercode,
+                        "isbn" => $isbn,
+                        "matnr" => $matnr,
+                        "school_year" => $school_year,
+                        "population" => $population,
+                        "projection_bsa" => $qtybsa,
+                        "projection_con" => $qtynbsa,
+                        "status" => '3',
+                        "remarks" => 'Projection Approved',
+                        "rsm" => $rsmleadzeros,
+                        "ssm" => $ssmleadzeros,
+                        "batchid" => $basedocnum,
+                    ]);
+                }
+
+            });
+
+            $status = 2;
+
+        } catch (\Exception $e) {
+
+            $status = 500;
+            $html = $e->getMessage();
+
+        }
+
+    } else {
+
+        $status = 410;
+
+    }
+
+    return response()->json([
+        'status' => $status,
+        'html' => $html
+    ]);
+}
+
+public function submit_approve_projection(Request $request)
+{
+    $staff = session('user_staff');
+    $approverPernr = session('pernr');
+    $username = $request->query('username');
+    $projdocnum = $request->query('projdocnum');
+    $date_now_full = date_now();
+    $date_now = date_now('dateonly');
+
+    $docnum_input = $request->input('forapproval_projection_docnum');
+
+    $status = 404;
+    $html = '';
+
+    if (!empty($docnum_input)) {
+
+        $updateprojectiond = OPTv2Projectiond::whereIn('DOCNUM', (array)$docnum_input)
+            ->where('USERNAME', $username)
+            ->whereNotNull('SUBMIT')
+            ->whereNull('APPROVED1')
+            ->update([
+                "STATUS" => 'for_ssm_approval',
+                "APPROVED1" => '1',
+                "APPROVEDBY1" => $approverPernr,
+                "QTYAPPROVED1" => DB::raw('QTY'),
+                "DATEAPPROVED1" => $date_now,
+            ]);
+
+        if ($updateprojectiond) {
+            $status = 2;
+
+            $div = session('division');
+
+            if (strpos(trim($div), 'BED') !== false) {
+
+                $projectionRows = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+                    ->whereIn('t1.DOCNUM', (array)$docnum_input)
+                    ->where('t1.USERNAME', $username)
+                    ->whereNotNull('t1.APPROVED1')
+                    ->whereNull('t1.APPROVED2')
+                    ->selectRaw('
+                        t1.*,
+                        (SELECT TOP 1 CUSTOMER 
+                         FROM OPTV2PROJECTIONH t2 
+                         WHERE t1.DOCNUM = t2.DOCNUM) as CUSTOMER
+                    ')
+                    ->get();
+
+                if ($projectionRows->isEmpty()) {
+                    $status = 403;
+                } else {
+                    try {
+
+                        DB::transaction(function () use ($projectionRows, $approverPernr, $date_now) {
+
+                            foreach ($projectionRows as $row) {
+
+                                $row->update([
+                                    "STATUS" => 'approved',
+                                    "APPROVED" => '1',
+                                    "DATEAPPROVED" => $date_now,
+                                    "APPROVED2" => '1',
+                                    "APPROVEDBY2" => $approverPernr,
+                                    "QTYAPPROVED2" => $row->QTY,
+                                    "DATEAPPROVED2" => $date_now,
+                                ]);
+
+                                $pernr = trim($row->PERNR);
+                                $basedocnum = $row->BASEDOCNUM;
+
+                                $quserdetails = userDetails($pernr);
+                                $qprojectiondetails = projection_period_details($basedocnum);
+
+                                $school_year = $qprojectiondetails->YEAR ?? null;
+
+                                $isbn = $row->EAN11;
+                                $matnr = $row->MATNR;
+                                $customercode = $row->CUSTOMER;
+                                $bsa = $row->BSA;
+                                $population = $row->POPULATION;
+                                $qty = $row->QTY;
+
+                                $rsm = $quserdetails->RSM ?? null;
+                                $ssm = $quserdetails->SSM ?? null;
+
+                                $pernrleadzeros = ltrim(trim($pernr), '0');
+                                $rsmleadzeros = ltrim(trim((string)$rsm), '0');
+                                $ssmleadzeros = ltrim(trim((string)$ssm), '0');
+
+                                $qtybsa = $bsa == '1' ? $qty : 0;
+                                $qtynbsa = $bsa != '1' ? $qty : 0;
+
+                                CrmProjection::create([
+                                    "idno" => $pernrleadzeros,
+                                    "school_id" => $customercode,
+                                    "isbn" => $isbn,
+                                    "matnr" => $matnr,
+                                    "school_year" => $school_year,
+                                    "population" => $population,
+                                    "projection_bsa" => $qtybsa,
+                                    "projection_con" => $qtynbsa,
+                                    "status" => '3',
+                                    "remarks" => 'Projection Approved',
+                                    "rsm" => $rsmleadzeros,
+                                    "ssm" => $ssmleadzeros,
+                                    "batchid" => $basedocnum,
+                                ]);
+                            }
+                        });
+
+                        $status = 2;
+
+                    } catch (\Exception $e) {
+                        $status = 500;
+                        $html = $e->getMessage();
+                    }
+                }
+            }
+
+        } else {
+            $status = 404;
+        }
+
+    } else {
+        $status = 410;
+    }
+
+    $response = array(
+        'status' => $status,
+        'html' => $html
+    );
+
+    return response()->json($response);
+}
+
+// public function submit_approve_projection(Request $request) {
+
+//     $staff = session('user_staff');
+//     $pernr = session('pernr');
+//     $username = $request->query('username');
+//     $projdocnum = $request->query('projdocnum');
+//     $date_now_full = date_now();
+//     $date_now = date_now('dateonly');
+
+
+//     $docnum_input = $request->input('forapproval_projection_docnum');
+
+//     $status = 404;
+//     $html = '';
+    
+    
+//     if(!empty($docnum_input)) {
+
+//         $updateprojectiond = OPTv2Projectiond::whereIn('DOCNUM',$docnum_input)
+//                         ->where('USERNAME',$username)
+//                         ->whereNotNull('SUBMIT')
+//                         ->whereNull('APPROVED1')
+//                         ->update([
+//                             "STATUS" => 'for_ssm_approval',
+                            
+//                             "APPROVED1" => '1',
+//                             "APPROVEDBY1" => $pernr,
+//                             "QTYAPPROVED1" => DB::raw('QTY'),
+//                             "DATEAPPROVED1" => $date_now,
+//                         ]);
+
+
+//         if ($updateprojectiond) {
+//             $status = 2;
+
+            
+//         } else {
+//             $status = 404;
+
+//         }
+
+//     }
+
+//     else {
+//         $status = 410;
+//     }
+
+
+//     $response = array(
+//         'status' => $status,
+//         'html' => $html
+//     );
+                            
+//     return response()->json($response);
+
+
+    
+// }
+
+public function submit_changeprojection_final_approve_qty(Request $request) {
+
+
+    $docnum = $request->input('docnum');
+    $aepernr = $request->input('aepernr');
+    $isbn = $request->input('isbn');
+    $approve_qty = $request->input('qty');
+    $linetotal = $request->input('linetotal');
+
+    $html = '';
+    $status = 404;
+    
+    // dd($aepernr);
+    $updateapproveqty = OPTv2Projectiond::where('DOCNUM',$docnum)
+                        ->where('EAN11',$isbn)
+                        ->where('PERNR',$aepernr)
+                        ->update([
+                            "QTY" => $approve_qty,
+                            "LINETOTAL" => $linetotal,
+                        ]);
+
+    if($updateapproveqty) {
+        $status = 2;
+    }
+    $response = array(
+        'status' => $status,
+        'html' => $html
+    );
+                            
+    return response()->json($response);
+
+  }
+  
+  public function submit_changeprojection_approve_qty(Request $request) {
+
+
+    $docnum = $request->input('docnum');
+    $aepernr = $request->input('aepernr');
+    $isbn = $request->input('isbn');
+    $approve_qty = $request->input('qty');
+    $linetotal = $request->input('linetotal');
+
+    $html = '';
+    $status = 404;
+    
+    // dd($aepernr);
+    $updateapproveqty = OPTv2Projectiond::where('DOCNUM',$docnum)
+                        ->where('EAN11',$isbn)
+                        ->where('PERNR',$aepernr)
+                        ->update([
+                            "QTY" => $approve_qty,
+                            "LINETOTAL" => $linetotal,
+                        ]);
+
+    if($updateapproveqty) {
+        $status = 2;
+    }
+    $response = array(
+        'status' => $status,
+        'html' => $html
+    );
+                            
+    return response()->json($response);
+
+  }
 
 public function isbn_create_projection(Request $request) {
 
@@ -10671,10 +11572,47 @@ public function submit_convertalloc_new(Request $request) {
     $converttype_input = $request->input('convertalloc_new_converttype'); 
     $toconverttype_input = $request->input('convertalloc_new_toconverttype'); 
     $basedocnum = $request->query('basedocnum'); 
+    $justification = trim(
+        (string) $request->input(
+            'convertalloc_new_justification',
+            ''
+        )
+    );
+    $convertTypeSelected = trim(
+        (string) $request->input(
+            'convertallocation_type',
+            ''
+        )
+    );
+
+    if (
+        $convertTypeSelected === 'bsa' &&
+        $justification === ''
+    ) {
+
+        return response()->json([
+            'status' => 411,
+            'html' =>
+                'Justification is required for BSA to Non-BSA conversion.'
+        ]);
+    }
+
+     /*
+    |--------------------------------------------------------------------------
+    | Shared Convert Allocation reference
+    |--------------------------------------------------------------------------
+    */
+    $convertReference =
+        'CA-'
+        . $basedocnum
+        . '-'
+        . trim($pernr);
+
 
     $status = 404;
     $html = '';
     $insertApproveFinalReqISBNList = [];
+    $insertConvertAlloc = [];
     $qprojectionPeriodDetails = projection_period_details($basedocnum);
     $projectionid = $qprojectionPeriodDetails->PROJECTIONID;
     $supplemental = $qprojectionPeriodDetails->SUPPLEMENTAL;
@@ -10684,9 +11622,6 @@ public function submit_convertalloc_new(Request $request) {
 
     if(!empty($isbn_input) && is_array($isbn_input)) {
         
-        
-        $insertConvertAlloc = [];
-
         $_docnum = OPTv2ConvertAllocd::orderBy('id', 'DESC')
                             ->value('DOCNUM');
 
@@ -10754,15 +11689,50 @@ public function submit_convertalloc_new(Request $request) {
     } 
 
 
-    if($insertConvertAlloc) {
+    if (!empty($insertConvertAlloc)) {
 
-        $status = 2;
+        $insertConvert = OPTv2ConvertAllocd::insert(
+            $insertConvertAlloc
+        );
 
-        // dd($insertConvertAlloc);
-        OPTv2ConvertAllocd::insert($insertConvertAlloc);
+        if ($insertConvert) {
 
-    }
-    else {
+            /*
+            |--------------------------------------------------------------------------
+            | Only BSA -> Non-BSA inserts initial justification
+            |--------------------------------------------------------------------------
+            */
+            if ($convertTypeSelected === 'bsa') {
+
+                $insertJustification = OPTv2Justification::create([
+                    'REFERENCE'     => $convertReference,
+                    'REFTYPE'       => 'CA',
+                    'JUSTIFICATION' => $justification,
+                    'USERNAME'      => $staff,
+                    'created_at'    => $date_now_full,
+                ]);
+
+                if (!$insertJustification) {
+
+                    $status = 405;
+
+                } else {
+
+                    $status = 2;
+                }
+
+            } else {
+
+                $status = 2;
+            }
+
+        } else {
+
+            $status = 405;
+        }
+
+    } else {
+
         $status = 403;
     }
 
@@ -11238,6 +12208,16 @@ public function submit_convertalloc_new(Request $request) {
         $transfertype = $request->input('create_allocation_request_transfertype');
         $reason = $request->input('create_allocation_request_reason');
 
+        if (
+            $transfertype == 'bsa_to_nonbsa' &&
+            empty(trim($reason ?? ''))
+        ) {
+            return response()->json([
+                'status' => 411,
+                'html' => 'Justification is required for BSA to Non-BSA transfer.'
+            ]);
+        }
+
         $qproj = OPTv2ProjectionPeriod::where('DOCNUM',$projdocnum)
                                     ->first();
         $projid = $qproj->PROJECTIONID;
@@ -11277,6 +12257,7 @@ public function submit_convertalloc_new(Request $request) {
 
         $insertalloch = [];
         $insertallocd = [];
+        $insertjustification = [];
 
         if(!empty($reqto_input) && is_array($reqto_input)) {
 
@@ -11311,6 +12292,10 @@ public function submit_convertalloc_new(Request $request) {
         $dbdocnum = $qdocnumalloc ?  $qdocnumalloc->DOCNUM + 1 : 1;
 
             foreach($group_reqto as $cust => $aa){
+
+                if (empty($aa['items'])) {
+                    continue;
+                }
 
                 $emptyreqto = false;
                 $idocnum = $dbdocnum++;
@@ -11418,10 +12403,59 @@ public function submit_convertalloc_new(Request $request) {
             } else {
 
 
-                $insertAllocReqH = OPTV2AllocReqh::insert($insertalloch);
-                $insertAllocReqD = OPTV2AllocReqd::insert($insertallocd);
+                $insertAllocReqH = true;
+                $insertJustification = true;
 
-                if ($insertAllocReqH && $insertAllocReqD) {
+                /*
+                |--------------------------------------------------------------------------
+                | Insert headers individually
+                |--------------------------------------------------------------------------
+                | We need the generated OPTV2ALLOCREQH.id so it can be saved as
+                | OPTV2JUSTIFICATION.JUSTIFICATIONID.
+                */
+                foreach ($insertalloch as $headerData) {
+
+                    $createdHeader = OPTv2AllocReqh::create($headerData);
+
+                    if (!$createdHeader) {
+                        $insertAllocReqH = false;
+                        break;
+                    }
+
+                     /*
+                    |--------------------------------------------------------------------------
+                    | Only BSA -> Non-BSA needs justification
+                    |--------------------------------------------------------------------------
+                    */
+                    if ($transfertype == 'bsa_to_nonbsa') {
+
+                        $createdJustification = OPTv2Justification::create([
+                            'REFERENCE'     => $createdHeader->REFERENCE,
+                            'REFTYPE'       => 'AR',
+                            'JUSTIFICATION' => $reason,
+                            'USERNAME'      => $staff,
+                            'created_at'    => $date_now_full,
+                        ]);
+
+                        if (!$createdJustification) {
+                            $insertJustification = false;
+                            break;
+                        }
+                    }
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Details can remain bulk insert
+                |--------------------------------------------------------------------------
+                */
+                $insertAllocReqD = OPTv2AllocReqd::insert($insertallocd);
+
+                if (
+                    $insertAllocReqH &&
+                    $insertAllocReqD &&
+                    $insertJustification
+                ) {
 
                     $reqtoreferencesImplode = implode(' ', $reqtoreferences);
 
@@ -11475,6 +12509,81 @@ public function submit_convertalloc_new(Request $request) {
         );
                                 
         return response()->json($response);
+
+
+    }
+
+    public function submit_disapprove_allocreqout(Request $request) {
+
+        $idallocreq_input = $request->input('id');
+        $allocreqtype_input = $request->input('alloctype');
+        $docnum_input = $request->input('docnum');
+        $remarks = $request->input('remarks');
+        $pernr = trim(session('pernr'));
+        $rank = trim(session('rank'));
+        $user_staff = session('user_staff');
+        $date_now = date_now();
+        $html = "";
+        $status = 404;
+
+        if(!empty($idallocreq_input) && is_array($idallocreq_input)){
+
+            foreach($idallocreq_input as $i => $p) {
+
+                $id = $idallocreq_input[$i];
+                $docnum = $docnum_input[$i]; 
+                
+                $qallocreqddetails = OPTv2AllocReqd::where('id',$id)
+                                            ->first();
+                $fromalloctype = $qallocreqddetails->ALLOCTYPE; 
+                $toalloctype = $qallocreqddetails->TOALLOCTYPE; 
+
+                $rankTrim = trim(strtolower($rank));
+                $statusdb = $rankTrim . '_disapproved';
+
+                if($rankTrim == 'rsm' || $rankTrim == 'ssm') {
+
+                    $statusdb = 'ae_' . $rankTrim . '_disapproved';
+                }
+
+                $qallocreqddisapprove = OPTv2AllocReqd::where('id',$id)
+                                        ->update([
+                                            "STATUS" =>  $statusdb,
+                                            "CANCEL" => '1',
+                                            "DISAPPROVED" => '1',
+                                            "DISAPPROVEDBY" => $user_staff,
+                                            "REMARKSDISAPPROVED" => $remarks,
+                                            "DATEDISAPPROVED" => $date_now,
+                                        ]);     
+
+            }
+
+        }
+        else {
+            $status = 403;
+        }
+
+       
+
+
+            if($qallocreqddisapprove) {
+
+                $status = 2;
+
+            } else{
+                $status = 405;
+            }
+
+        
+ 
+
+        $response = array(
+            'status' => $status,
+            'html' => $html
+        );
+                                
+        return response()->json($response);
+
 
 
     }
@@ -11641,52 +12750,6 @@ public function submit_convertalloc_new(Request $request) {
 
     }
 
-
-    public function submit_disapproved_allocreq(Request $request) {
-
-        $ids = $request->input('ids');
-        $pernr = trim(session('pernr'));
-        $rank = trim(session('rank'));
-        $user_staff = session('user_staff');
-        $date_now = date_now();
-        $html = "";
-
-        $qallocreqd =  OPTv2AllocReqd::whereIn('id',$ids);
-
-        if(!$qallocreqd->exists()) {
-            $status = 403;
-        }
-        else {
-
-            $rankTrim = trim(strtolower($rank));
-            $statusdb = $rankTrim . '_disapproved';
-
-            $qallocreqdapprove =  $qallocreqd->update([
-                "STATUS" => $statusdb,
-                "CANCEL" => '1',
-                "DISAPPROVED" => '1',
-                "DATEDISAPPROVED" => $date_now,
-                "REMARKSDISAPPROVED" => $remarks,
-                "DISAPPROVEDBY" => $user_staff,
-            ]);
-
-
-            if($qallocreqdapprove) {
-                $status = 2;
-            } else{
-                $status = 405;
-            }
-
-        }
- 
-        $response = array(
-            'status' => $status,
-            'html' => $html
-        );
-                                
-        return response()->json($response);
-
-    }
     
     public function submit_disapproved_convertalloc(Request $request) {
 
@@ -11775,6 +12838,27 @@ public function submit_convertalloc_new(Request $request) {
                 $fromconverttype = $qconvertallocdetails->FROMCONVERTTYPE; 
                 $toconverttype = $qconvertallocdetails->TOCONVERTTYPE; 
                 
+                if($toconverttype !== 'nonbsa'){ 
+
+                 
+
+                    $qconvertallocdapprove =  $qconvertallocdetails->update([
+                                            
+                                        "STATUS" => $rankstrlower . '_approved',
+                                        "APPROVED" => '1',
+                                        "APPROVEDBY" => $pernr,
+                                        "DATEAPPROVED" => $date_now,
+                                        "APPROVED1" => '1',
+                                        "APPROVEDBY1" => $pernr,
+                                        "DATEAPPROVED1" => $date_now,
+                                    ]);
+
+                    modifyAllocated($isbn,$pernrconvallocd, $basedocnum, $toconverttype,$qty,$modtype = 'add');
+                    modifyAllocated($isbn,$pernrconvallocd, $basedocnum, $fromconverttype,$qty,$modtype = 'deduct');
+                    
+
+                } else {
+
                     if (strpos($rank, 'RSM') !== false) {
 
                             $qconvertallocdapprove =  $qconvertallocdetails->update([
@@ -11788,23 +12872,6 @@ public function submit_convertalloc_new(Request $request) {
 
                     }
 
-                    if (strpos($rank, 'CRM') !== false) {
-
-                                $qconvertallocdapprove =  $qconvertallocdetails->update([
-                                            
-                                                    "STATUS" => $rankstrlower . '_approved',
-                                                    "APPROVED" => '1',
-                                                    "APPROVEDBY" => $pernr,
-                                                    "DATEAPPROVED" => $date_now,
-                                                    "APPROVED1" => '1',
-                                                    "APPROVEDBY1" => $pernr,
-                                                    "DATEAPPROVED1" => $date_now,
-                                                ]);
-
-                                modifyAllocated($isbn,$pernrconvallocd, $basedocnum, $toconverttype,$qty,$modtype = 'add');
-                                modifyAllocated($isbn,$pernrconvallocd, $basedocnum, $fromconverttype,$qty,$modtype = 'deduct');
-                    }
-                    
                     if (strpos($rank, 'AVP') !== false || strpos($rank, 'CC') !== false) {
 
                                 $qconvertallocdapprove =  $qconvertallocdetails->update([
@@ -11821,6 +12888,8 @@ public function submit_convertalloc_new(Request $request) {
                                 modifyAllocated($isbn,$pernrconvallocd, $basedocnum, $toconverttype,$qty,$modtype = 'add');
                                 modifyAllocated($isbn,$pernrconvallocd, $basedocnum, $fromconverttype,$qty,$modtype = 'deduct');
                     }
+                    
+                }
 
             }
           
@@ -11900,7 +12969,7 @@ public function submit_convertalloc_new(Request $request) {
 
                             $qallocreqdapprove3 =  $qallocreqd->update([
                                 // "STATUS" => 'for_ssm_approval',
-                                "STATUS" => 'for_ae_rsm_approval',
+                                "STATUS" => 'for_ae_approval',
                                 "APPROVED3" => '1',
                                 "APPROVEDBY3" => $pernr,
                                 "DATEAPPROVED3" => $date_now,
@@ -11955,6 +13024,86 @@ public function submit_convertalloc_new(Request $request) {
 
     }
     
+    public function submit_refloat_approved_finalreq(Request $request)
+    {
+        $basedocnum = $request->input('basedocnum');
+        $isbn = $request->input('isbn');
+        $allocated = $request->input('allocated');
+        $pernr = session('pernr');
+        $date_now = date_now();
+
+        $qfinalreq = OPTv2FinalReq::where('BASEDOCNUM', $basedocnum)
+                        ->where('EAN11', $isbn);
+    
+        $status = 404;
+        $html = '';
+    
+        if (!$qfinalreq->exists()) {
+            $status = 403;
+        } else {
+            try {
+                DB::transaction(function () use ($qfinalreq, $basedocnum, $isbn, &$status, &$html,$pernr,$date_now,$allocated) {
+    
+                    if($allocated > 0){
+
+                        $deletedCrm = CrmAllocationHeader::where('isbn', $isbn)
+                        ->where('aBatch', $basedocnum)
+                        ->delete();
+    
+                        if ($deletedCrm <= 0) {
+                            throw new \Exception('Failed to delete CrmAllocationHeader.');
+                        }
+        
+                        $deletedAllocated = OPTv2Allocated::where('EAN11', $isbn)
+                            ->where('BASEDOCNUM', $basedocnum)
+                            ->delete();
+        
+                        if ($deletedAllocated <= 0) {
+                            throw new \Exception('Failed to delete OPTv2Allocated.');
+                        }
+
+                    }
+    
+                    $updatedProjection = OPTv2Projectiond::where('EAN11', $isbn)
+                        ->where('BASEDOCNUM', $basedocnum)
+                        ->update([
+                            'DATEALLOCATED' => null
+                        ]);
+    
+                    if ($updatedProjection <= 0) {
+                        throw new \Exception('Failed to update OPTv2Projectiond.');
+                    }
+    
+                    $qdeletefinalreq = $qfinalreq->delete();
+    
+                    if (!$qdeletefinalreq) {
+                        throw new \Exception('Failed to delete final req.');
+                    }
+
+                    OPTv2Logs::create([
+                        "REFERENCE" => $isbn,
+                        "REMARKS" => 'Refloated ISBN - Deleted Qty: ' . $allocated ,
+                        "USERID" => $pernr,
+                        "DOCDATE" => $date_now,
+                        "LOGTYPE" => 'refloatapprovefinalreq',
+                        "BASEDOCNUM" => $basedocnum,
+                    ]);
+    
+                    $status = 2;
+                });
+            } catch (\Throwable $e) {
+                $status = 500;
+                $html = $e->getMessage() . ' - ' . $e->getLine();
+            }
+        }
+    
+        $response = array(
+            'status' => $status,
+            'html' => $html
+        );
+                                
+        return response()->json($response);
+    }
         
     public function submit_update_finalreq_buffstock(Request $request) {
 
@@ -12060,7 +13209,7 @@ public function submit_convertalloc_new(Request $request) {
                                         "DEPARTMENT" => $dept,
                                         "BSA" => $bsa,
 
-                                    ]);  
+                                    ]);
             if($updatecustomercode){
                 $status = 2;
 
@@ -12085,6 +13234,105 @@ public function submit_convertalloc_new(Request $request) {
                                 
         return response()->json($response);
 
+
+    }
+
+    public function datatable_create_projection_saved_customer(Request $request) {
+
+        $basedocnum = $request->query('basedocnum');
+        $customercode = $request->query('customercode');
+        $pernr = session('pernr');
+        $qprojectionperiod = projection_period_details($basedocnum);
+        $supplemental = $qprojectionperiod->SUPPLEMENTAL;
+
+        $projectionResults = OPTv2Projectiond::from('OPTV2PROJECTIOND as t1')
+            ->leftJoin('OPTV2PROJECTIONH as t3', 't1.DOCNUM', '=', 't3.DOCNUM')
+            ->selectRaw('
+                CUSTOMER,
+                CUSTOMERNAME,
+                COUNT(EAN11) as cnt
+            ')
+            ->where('t1.SUPPLEMENTAL',$supplemental)
+            ->where('t1.PERNR',$pernr)
+            ->where('CUSTOMER','!=',$customercode)
+            ->groupBy('CUSTOMER','CUSTOMERNAME')
+            ->orderBy('CUSTOMERNAME','ASC')
+            ->get()
+            ;
+
+            $num = 0;
+        if($projectionResults->isEmpty()) {
+
+            $response = [
+                "num" => 0
+            ];
+
+        } else {
+            
+            // var ap = createProjectionEditingIsbnRow(
+            //     randomid, customercode, isbn, title, titleDisplay,
+            //     isbnunitpriceclean, isbnunitpriceDisplay,
+            //     population, projection, totalprev1, totalprev2, totalprev3, disc,0,0,'no_projection'
+            // ) 
+
+
+
+            foreach ($projectionResults as $r){
+                
+                $num++;
+                $customercode = $r->CUSTOMER;
+                $customername = $r->CUSTOMERNAME;
+                $cnt = $r->cnt;
+              
+                $customernameDisplay = '<span class="line-clamp-1 d-inline" title="'.$customername.'"> '.$customername.' </span> <span class="text-info d-inline">('.$cnt.')</span>';
+
+                $copy = '
+                <span class="text-center">
+                     <a class="fs--1 copy-isbn-btn text-primary text-primary" href="javascript:void(0)" data-customercode="'.$customercode.'" data-cnt="'.$cnt.'" title="Copy Titles" role="button" aria-expanded="true" aria-controls="collapseExample1">
+                                                    Copy
+                                                </a>
+                    </span>
+             
+                ';
+
+
+                $response[] = array(
+                    "num" => $num,
+                    "customercode" => $customercode,
+                    "customername" => $customernameDisplay,
+                    "copy" => $copy,
+                );
+            }
+
+        }
+     
+
+        return response()->json($response);
+    }
+    public function submit_update_convertallocd_branchwhouse(Request $request) {
+
+        $v = $request->input('v');
+        $id = $request->input('id');
+        $html = "";
+        $u =  OPTv2ConvertAllocd::where('id',$id)
+                                ->update([
+                                    "BRANCHWHOUSE" => $v
+                                ]);
+
+        if($u) {
+            $status = 2;
+        }
+        else {
+            $status = 404;
+        }
+ 
+        $response = array(
+            'status' => $status,
+            'html' => $html
+        );
+                                
+        return response()->json($response);
+        
 
     }
     public function submit_update_allocreq_qty(Request $request) {
@@ -12380,6 +13628,7 @@ public function submit_convertalloc_new(Request $request) {
                 $qty = $r->QTY;
                 $cancel = $r->CANCEL;
                 $approved = $r->APPROVED;
+                $branchwhouse = $r->BRANCHWHOUSE;
                 $remarksdisapproved = $r->REMARKSDISAPPROVED;
                 $converttype = $r->FROMCONVERTTYPE;
                 $toconverttype = $r->TOCONVERTTYPE;
@@ -12402,11 +13651,86 @@ public function submit_convertalloc_new(Request $request) {
                                     </div>
                             </div>";
                             
-    
+             //select type only
+             $activeWarehouses = activeWarehouses();
+             $activeBranches = activeBranches();
+             
+             $ab = '';
+             $aw = '';
+         
+             // dd($branchwhouseFinal);
+
+             
+             foreach($activeBranches as $a => $b){
+
+                 $selected1 = $a === $branchwhouse ? 'selected' : '';
+
+                 $ab.= '
+                         <option value="'.$a.'" '.$selected1.'>'.$b.'</option>
+                 ';
+             }
+         
+                                 
+             foreach($activeWarehouses as $c => $d){
+                 
+                 $selected2 = $b === $branchwhouse ? 'selected' : '';
+                 $aw.= '
+                         <option value="'.$c.'" '.$selected1.'>'.$d.'</option>
+                 ';
+             }
+
+             $selectbranchwhouse = '
+                     <select data-id="'.$id.'" class="form-control p-1 update_convertallocd_branchwhouse  form-control-sm">
+                         <option value=" " selected>Choose in the list </option>
+
+                         <optgroup label="Branches" class="branchesopt">
+                             '.$ab.'
+                         </optgroup>
+
+
+                         <optgroup label="Warehouses" class="whouseopt">
+                             '.$aw.'
+                         </optgroup>
+                     </select>
+                 ';
                 $descriptionDisplay = '<span class="line-clamp-1" title="'.$description.'"> '.$description.' </span>';
                 $converttypeDisplay = acronymFullWord($converttype) . ' to ' . acronymFullWord($toconverttype); 
                 $datecreateDisplay =  formatDate($created_at,'mdy');
                 $statusDisplay =    $statusDisplay = status_display($status,'badge','0.7', '',$remarksdisapproved); 
+                
+                $history = '';
+
+                if (
+                    $converttype === 'bsa' &&
+                    $toconverttype === 'nonbsa'
+                ) {
+
+                    $convertReference =
+                        'CA-'
+                        . $r->BASEDOCNUM
+                        . '-'
+                        . trim($r->PERNR);
+
+                    $messageCount = OPTv2Justification::where(
+                            'REFERENCE',
+                            $convertReference
+                        )
+                        ->where('REFTYPE', 'CA')
+                        ->count();
+
+                    $history = '
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-link text-primary p-0 btn_convert_view_messages"
+                            data-reference="' . $convertReference . '"
+                        >
+                            View Messages
+                            <span class="badge bg-primary ms-1">'
+                                . $messageCount .
+                            '</span>
+                        </button>
+                    ';
+                }
                 $response[] = array(
                     "num" => $num,
                     "isbn" => $isbn,
@@ -12414,7 +13738,9 @@ public function submit_convertalloc_new(Request $request) {
                     "qty"  =>  $qty, 
                     "datecreate"  =>  $datecreateDisplay, 
                     "converttypedisplay"  =>  $converttypeDisplay, 
+                    "branchwhouse"  =>  $selectbranchwhouse, 
                     "status"  => $statusDisplay,
+                    "history" => $history,
                     "action"  => $action,
                 );
             }
@@ -12425,7 +13751,6 @@ public function submit_convertalloc_new(Request $request) {
         return response()->json($response);
 
     }
-
     public function datatable_update_push_list_isbn_table(Request $request) {
 
         $query = OPTv2UpdatePushISBN::orderBy('id','DESC')
@@ -12654,6 +13979,131 @@ public function submit_convertalloc_new(Request $request) {
 
     }
 
+    public function submit_change_isbn_projection(Request $request) {
+        $num = 0;
+        $staff = session('user_staff');
+        $pernr = session('pernr');
+        $date_now = date_now('dateonly');
+        $date_full = date_now();
+        $html = '';
+        $basedocnum = $request->input('basedocnum');  
+        $newisbn = $request->input('change_isbn_newisbn');  
+        $existing = $request->input('change_isbn_existing');  
+
+        $querycheck = getISBNDetails($newisbn);
+
+        $status = 404;
+
+        if(empty($querycheck)) {
+            $status = 403;
+
+        } else {
+
+            $newmatnr = $querycheck->MATNR;
+            $newdescription = strtoupper($querycheck->MAKTX);
+            $unitprice = round($querycheck->KBETRCE);
+            $author = trim($querycheck->ZZAUTHOR1 . " " . $querycheck->ZZAUTHOR2);
+            $copyright = $querycheck->ZZCOPYRIGHT;
+
+            try {
+                DB::transaction(function () use (
+                    $date_now,
+                    $pernr,
+                    $basedocnum,
+                    $newdescription,
+                    $newmatnr,
+                    $newisbn,
+                    $existing,
+                    $unitprice,
+                    $author
+                ) {
+              
+    
+                    
+                    $updated = OPTv2Projectiond::where('TEMPEAN11', $existing)
+                    ->where('BASEDOCNUM',$basedocnum)
+                    ->update([
+                        "MATNR"       => $newmatnr,
+                        "EAN11"       => $newisbn,
+                        "DESCRIPTION" => $newdescription,
+                        "UNITP"   => $unitprice,
+                        "AUTHOR"      => $author,
+    
+                        // LINETOTAL = QTY * UNITPRICE (QTY is varchar)
+                        // If QTY should be whole numbers only:
+                        // "LINETOTAL" => DB::raw("CAST(QTY as INT) * {$unitprice}"),
+    
+                        // If may chance na decimals ang QTY, ito mas safe:
+                        "LINETOTAL"   => DB::raw("CAST(QTY as DECIMAL(10,2)) * {$unitprice}"),
+                    ]);
+
+                    // if gusto mo strict: pag di nag-update, stop
+                    if (!$updated) {
+                        throw new \Exception('Failed to update OPTv2Projectiond');
+                    }
+    
+                    // 2) update other tables
+                    OPTv2AllocReqd::where('TEMPEAN11', $existing)
+                    ->where('BASEDOCNUM',$basedocnum)
+                    ->update([
+                        "MATNR"       => $newmatnr,
+                        "EAN11"       => $newisbn,
+                        "DESCRIPTION" => $newdescription,
+                    ]);
+    
+                    OPTv2ConvertAllocd::where('TEMPEAN11', $existing)
+                    ->where('BASEDOCNUM',$basedocnum)
+                    ->update([
+                        "MATNR"       => $newmatnr,
+                        "EAN11"       => $newisbn,
+                        "DESCRIPTION" => $newdescription,
+                    ]);
+    
+                    // OPTv2FinalReq::where('TEMPEAN11', $existing)->update([
+                    //     "EAN11"       => $newisbn,
+                    //     "DESCRIPTION" => $newdescription,
+                    // ]);
+    
+                    OPTv2Allocated::where('TEMPEAN11', $existing)
+                    ->where('BASEDOCNUM',$basedocnum)
+                    ->update([
+                        "MATNR"       => $newmatnr,
+                        "EAN11"       => $newisbn,
+                        "DESCRIPTION" => $newdescription,
+                    ]);
+    
+
+                    OPTv2Logs::create([
+                        "REFERENCE" => $existing,
+                        "REMARKS" => $newisbn ,
+                        "USERID" => $pernr,
+                        "DOCDATE" => $date_now,
+                        "LOGTYPE" => 'changeisbn',
+                        "BASEDOCNUM" => $basedocnum,
+                    ]);
+                });
+    
+                $status = 2; // success
+            } catch (\Throwable $e) {
+                // optional: log error
+                // \Log::error($e);
+    
+                $status = 500; // or other code you prefer
+                $html = $e->getMessage() . ' - ' . $e->getLine();
+        
+            }
+        }
+      
+    
+        $response = array(
+            'status' => $status,
+            'html' => $html
+        );
+
+        return response()->json($response);
+
+    }
+
     public function submit_update_pushlist_sap_isbn(Request $request) {
         $num = 0;
         $staff = session('user_staff');
@@ -12717,10 +14167,10 @@ public function submit_convertalloc_new(Request $request) {
                         "DESCRIPTION" => $newdescription,
                     ]);
     
-                    OPTv2FinalReq::where('TEMPEAN11', $tempisbn)->update([
-                        "EAN11"       => $newisbn,
-                        "DESCRIPTION" => $newdescription,
-                    ]);
+                    // OPTv2FinalReq::where('TEMPEAN11', $tempisbn)->update([
+                    //     "EAN11"       => $newisbn,
+                    //     "DESCRIPTION" => $newdescription,
+                    // ]);
     
                     OPTv2Allocated::where('TEMPEAN11', $tempisbn)->update([
                         "MATNR"       => $newmatnr,
@@ -13146,6 +14596,7 @@ public function submit_convertalloc_new(Request $request) {
                     "SSM" => $ssm,
                     "STATUS" => "1",
                     "PERNR" => $persnr,
+                    "IDNO" => $idno,
                     "RANK" => $rank,
                     "ACTIVE" => $active,
                     "DIVISION" => $division,
@@ -13243,6 +14694,7 @@ public function submit_convertalloc_new(Request $request) {
                     "SSM" => $ssm,
                     "STATUS" => "1",
                     "PERNR" => $persnr,
+                    "IDNO" => $idno,
                     "RANK" => $rank,
                     "ACTIVE" => $active,
                     "DIVISION" => $division,
@@ -13285,8 +14737,8 @@ public function submit_convertalloc_new(Request $request) {
         $aefullname = $qusersubmitted->FULLNAME;
         $usernamesubmmited = $qusersubmitted->USERNAME;
 
-        $email = 'nico.padilla@cebookshop.com';
-        //  $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
+        //$email = 'nico.padilla@cebookshop.com';
+         $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
 
         $qprojectionPeriodDetails = projection_period_details($basedocnum);
         $projectionid = $qprojectionPeriodDetails->PROJECTIONID;
@@ -13320,8 +14772,8 @@ public function submit_convertalloc_new(Request $request) {
         $iduser = $quser->id;
         $emailuser = $quser->EMAIL;
 
-        $email = 'nico.padilla@cebookshop.com';
-        //  $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
+        //$email = 'nico.padilla@cebookshop.com';
+         $email = $quser->EMAIL ?: 'nico.padilla@cebookshop.com';
 
         $qprojectionPeriodDetails = projection_period_details($basedocnum);
         $projectionid = $qprojectionPeriodDetails->PROJECTIONID;
@@ -13393,7 +14845,9 @@ public function submit_convertalloc_new(Request $request) {
 
         $ccEmails = [
             'samuel.deluna@metrostarrealty.com.ph',
-            'samuel.deluna@cebookshop.com'
+            'samuel.deluna@cebookshop.com',
+            'maricon.tuazon@cebookshop.com',
+            'emrick.salvador@cebookshop.com'
         ];        
       
 
@@ -13411,7 +14865,191 @@ public function submit_convertalloc_new(Request $request) {
         });
     }
 
+    //added by emrick august 18, 2026
+    public function testEmailOVP(Request $request)
+    {
+        try {
 
+            $baseUrl = url('/');
+
+            Mail::send('emails.EmailForApprovalOVP', [
+                'linkforapproval' => $baseUrl . '/modules/approvals',
+                'ae' => 'TEST EMAIL - EMRICK',
+            ], function ($message) {
+
+                $message->to('emrick.salvador@cebookshop.com')
+                    ->subject('OPTv2: TEST Email Notification');
+
+            });
+
+            return response()->json([
+                'status' => 200,
+                'message' => 'Test email sent successfully.',
+                'recipient' => 'emrick.salvador@cebookshop.com'
+            ]);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'status' => 500,
+                'message' => 'Email sending failed.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function get_allocreq_justification(Request $request)
+    {
+        $reference = trim((string) $request->input('reference'));
+        $reftype = strtoupper(
+            trim((string) $request->input('reftype', 'AR'))
+        );
+
+        if (empty($reference)) {
+            return response()->json([
+                'status' => 400,
+                'data' => []
+            ]);
+        }
+
+        if (!in_array($reftype, ['AR', 'CA'])) {
+            return response()->json([
+                'status' => 400,
+                'data' => []
+            ]);
+        }
+
+        $justifications = OPTv2Justification::where(
+                'REFERENCE',
+                $reference
+            )
+            ->where('REFTYPE', $reftype)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->get([
+                'id',
+                'REFERENCE',
+                'REFTYPE',
+                'JUSTIFICATION',
+                'USERNAME',
+                'created_at'
+            ]);
+
+        return response()->json([
+            'status' => 2,
+            'data' => $justifications
+        ]);
+    }
+
+    public function submit_allocreq_justification_message(Request $request)
+    {
+        $reference = trim(
+            (string) $request->input('reference')
+        );
+
+        $reftype = strtoupper(
+            trim((string) $request->input('reftype', 'AR'))
+        );
+
+        $message = trim(
+            (string) $request->input('message')
+        );
+
+        $staff = trim(
+            (string) session('user_staff')
+        );
+
+        $date_now_full = date_now();
+
+
+        if (empty($reference)) {
+            return response()->json([
+                'status' => 400,
+                'message' => 'Reference is required.'
+            ]);
+        }
+
+
+        if (!in_array($reftype, ['AR', 'CA'])) {
+            return response()->json([
+                'status' => 400,
+                'message' => 'Invalid reference type.'
+            ]);
+        }
+
+
+        if (empty($message)) {
+            return response()->json([
+                'status' => 411,
+                'message' => 'Message is required.'
+            ]);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate reference
+        |--------------------------------------------------------------------------
+        */
+        if ($reftype === 'AR') {
+
+            $recordExists = OPTv2AllocReqh::where(
+                'REFERENCE',
+                $reference
+            )->exists();
+
+        } else {
+
+            /*
+            |--------------------------------------------------------------------------
+            | CA reference:
+            | CA-{BASEDOCNUM}-{PERNR}
+            |--------------------------------------------------------------------------
+            */
+            $parts = explode('-', $reference);
+
+            $basedocnum = $parts[1] ?? null;
+            $pernr = $parts[2] ?? null;
+
+            $recordExists = OPTv2ConvertAllocd::where(
+                    'BASEDOCNUM',
+                    $basedocnum
+                )
+                ->where('PERNR', $pernr)
+                ->exists();
+        }
+
+
+        if (!$recordExists) {
+            return response()->json([
+                'status' => 404,
+                'message' => 'Reference not found.'
+            ]);
+        }
+
+
+        $insert = OPTv2Justification::create([
+            'REFERENCE' => $reference,
+            'REFTYPE' => $reftype,
+            'JUSTIFICATION' => $message,
+            'USERNAME' => $staff,
+            'created_at' => $date_now_full,
+        ]);
+
+
+        if (!$insert) {
+            return response()->json([
+                'status' => 500,
+                'message' => 'Unable to save message.'
+            ]);
+        }
+
+
+        return response()->json([
+            'status' => 2,
+            'message' => 'Message posted successfully.'
+        ]);
+    }
 
 
     
